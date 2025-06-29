@@ -1,0 +1,17 @@
+libbraid -- C99 library for coroutines.
+
+WHAT
+
+  The goal is to provide the non-blocking IO features of libtask, while keeping
+  the simplicity of libco. Additionally, libbraid should be highly portable,
+  just by writing a bit of assembly for saving and restoring contexts (and some
+  glue in `cordcreate`).
+
+  libbraid is heavily inspired by higan's libco and Russ Cox's libtask. 
+
+TERMINOLOGY
+
+   * braid: a set of cooperatively scheduled cords.
+   * cord: a coroutine.
+   * context: the state of a cord, that is, its callee-saved registers.
+

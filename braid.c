@@ -5,39 +5,11 @@
 #include <sysexits.h>
 
 #ifdef __amd64__
-typedef struct {
-  usize rsp;
-  usize rbp;
-  usize rbx;
-  usize r12;
-  usize r13;
-  usize r14;
-  usize r15;
-} Context;
+typedef struct { usize rsp; usize regs[6]; } Context;
 #elif defined __aarch64__
-typedef struct {
-  usize sp;
-  usize x30;
-  usize x19;
-  usize x20;
-  usize x21;
-  usize x22;
-  usize x23;
-  usize x24;
-  usize x25;
-  usize x26;
-  usize x27;
-  usize x28;
-  usize x29;
-  double d8;
-  double d9;
-  double d10;
-  double d11;
-  double d12;
-  double d13;
-  double d14;
-  double d15;
-} Context;
+typedef struct { usize sp; usize x30; usize x19; usize regs[10]; double fpregs[8]; } Context;
+#else
+#error "Unsupported architecture"
 #endif
 
 typedef struct {
@@ -72,8 +44,6 @@ cord_t cordcreate(void (*f)(void), usize stacksize) {
   c->ctx.sp = (usize)p;
   c->ctx.x30 = (usize)f;
   c->ctx.x19 = (usize)p;
-#else
-#error "Unsupported architecture"
 #endif
   return c;
 }
