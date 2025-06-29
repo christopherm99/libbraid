@@ -1,4 +1,4 @@
-CFLAGS := -Wall -Wextra -pedantic -std=c99
+CFLAGS := -Wall -Wextra -Werror -pedantic -std=c99
 MACHINE := $(shell uname -m)
 
 .PHONY: all clean
@@ -14,6 +14,9 @@ braid.o: braid.c
 ctx_swap.$(MACHINE).o: ctx_swap.$(MACHINE).S
 	$(AS) -c -o $@ $<
 
+test: libbraid.a test.c
+	$(CC) $(CFLAGS) -o test test.c -L. -lbraid
+
 clean:
-	rm -f *.o libbraid.a
+	rm -f *.o libbraid.a test
 
