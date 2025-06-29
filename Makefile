@@ -1,4 +1,4 @@
-CFLAGS := -Wall -Wextra -Werror -pedantic -std=c99
+CFLAGS := -Wall -Wextra -Werror -pedantic -std=c99 -ggdb
 MACHINE := $(shell uname -m)
 
 .PHONY: all clean

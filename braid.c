@@ -47,12 +47,11 @@ typedef struct {
 
 extern void ctx_swap(Context *, Context *);
 
-static Cord active_cord;
-static void crash(void) { err(EX_SOFTWARE, "a cord returned"); }
+static Cord start_cord;
+static Cord *active_cord = &start_cord;
+static void crash(void) { errx(EX_SOFTWARE, "a cord returned"); }
 
-cord_t cordactive(void) {
-  return &active_cord;
-}
+cord_t cordactive(void) { return active_cord; }
 
 cord_t cordcreate(void (*f)(void), usize stacksize) {
   Cord *c;
@@ -65,7 +64,7 @@ cord_t cordcreate(void (*f)(void), usize stacksize) {
   p = (usize *)(((usize)c->stack + stacksize - 32) & ~0xF);
   *--p = (usize)crash;
   *--p = (usize)f;
-  c->ctx.rsp = (usize)(c->stack + stacksize);
+  c->ctx.rsp = (usize)p;
 #elif defined __aarch64__
   p = (usize *)(((usize)c->stack + stacksize - 32) & ~0xF);
   *--p = (usize)crash;
@@ -80,7 +79,7 @@ cord_t cordcreate(void (*f)(void), usize stacksize) {
 }
 
 void cordswitch(cord_t c) {
-  register Cord *old = &active_cord;
-  ctx_swap(&old->ctx, &((Cord *)c)->ctx);
+  register Cord *old = active_cord;
+  ctx_swap(&old->ctx, &((active_cord = (Cord *)c))->ctx);
 }
 
