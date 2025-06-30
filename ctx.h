@@ -3,7 +3,7 @@
 
 #include "types.h"
 
-ctx_t dummy_ctx;
+extern ctx_t dummy_ctx;
 ctx_t newctx(void);
 ctx_t createctx(void (*f)(usize), usize stacksize, usize arg);
 void swapctx(ctx_t old, ctx_t new);

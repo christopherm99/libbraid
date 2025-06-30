@@ -68,9 +68,11 @@ void braidlaunch(Braid *b) {
   }
 
   free(b->sched);
-  for (c = b->cords.head; c != NULL; c = c->next) {
-    free(c->ctx);
-    free(c);
+  while (c) {
+    Cord *tmp = c;
+    c = c->next;
+    free(tmp->ctx);
+    free(tmp);
   }
 }
 
