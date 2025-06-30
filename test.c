@@ -4,14 +4,14 @@
 
 static ctx_t x, y;
 
-void fn(void) {
-  printf("hello\n");
+void fn(usize arg) {
+  printf("hello %lu\n", arg);
   swapctx(y, x);
 }
 
 int main(void) {
   x = newctx();
-  y = createctx(fn, 0x1000);
+  y = createctx(fn, 0x1000, 1337);
 
   printf("switching to y\n");
   swapctx(x, y);

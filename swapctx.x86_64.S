@@ -17,6 +17,7 @@ swapctx:
   mov r13, [rsi + 0x20];
   mov r14, [rsi + 0x28];
   mov r15, [rsi + 0x30];
+  mov rdi, [rsi + 0x38];
   ret;
 
 .section .note.GNU-stack,"",@progbits

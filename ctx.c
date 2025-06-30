@@ -5,9 +5,9 @@
 #include <sysexits.h>
 
 #ifdef __amd64__
-struct ctx { usize rsp; usize regs[6]; };
+struct ctx { usize rsp; usize regs[6]; usize rdi; };
 #elif defined __aarch64__
-struct ctx { usize sp; usize x30; usize x19; usize regs[10]; double fpregs[8]; };
+struct ctx { usize sp; usize x30; usize x19; usize regs[10]; double fpregs[8]; usize x0; };
 #else
 #error "Unsupported architecture"
 #endif
@@ -22,7 +22,7 @@ ctx_t newctx(void) {
   return c;
 }
 
-ctx_t createctx(void (*f)(void), usize stacksize) {
+ctx_t createctx(void (*f)(usize), usize stacksize, usize arg) {
   struct ctx *c;
   usize *p;
 
@@ -34,12 +34,14 @@ ctx_t createctx(void (*f)(void), usize stacksize) {
   *--p = (usize)crash;
   *--p = (usize)f;
   c->rsp = (usize)p;
+  c->rdi = (usize)arg;
 #elif defined __aarch64__
   *--p = (usize)crash;
   *--p = (usize)crash;
   c->sp = (usize)p;
   c->x30 = (usize)f;
   c->x19 = (usize)p;
+  c->x0 = (usize)arg;
 #endif
   return c;
 }

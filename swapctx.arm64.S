@@ -26,4 +26,5 @@ _swapctx:
   ldp d12, d13, [x1, #0x90];
   stp d14, d15, [x0, #0xa0];
   ldp d14, d15, [x1, #0xa0];
+  ldr x0, [x1, #0xa8];
   br x30;

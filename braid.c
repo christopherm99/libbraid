@@ -37,12 +37,18 @@ Braid *braidinit(void) {
   return b;
 }
 
-void braidadd(Braid *b, void (*f)(void), usize stacksize) {
+static void ripcord(usize arg) {
+  ((Braid *)arg)->running->entry();
+  braidexit((Braid *)arg);
+}
+
+void braidadd(Braid *b, void (*f)(), usize stacksize) {
   Cord *c;
 
   if ((c = malloc(sizeof(Cord))) == NULL) err(EX_OSERR, "braidadd: malloc");
   memset(c, 0, sizeof(Cord));
-  c->ctx = createctx(f, stacksize);
+  c->ctx = createctx(ripcord, stacksize, (usize)b);
+  c->entry = f;
 
   braidappend(b, c);
 }

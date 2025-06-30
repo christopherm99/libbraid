@@ -11,7 +11,6 @@ void foo(void) {
     braidyield(b);
   }
   printf("foo done\n");
-  braidexit(b);
 }
 
 void bar(void) {
@@ -20,7 +19,6 @@ void bar(void) {
     printf("bar %d\n", i);
     braidyield(b);
   }
-  braidexit(b);
 }
 
 int main(void) {

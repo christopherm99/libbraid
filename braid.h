@@ -5,10 +5,11 @@
 
 typedef struct cord Cord;
 struct cord {
-  ctx_t ctx;
-  Cord *next;
-  Cord *prev;
-  char  name[16];
+  ctx_t  ctx;
+  void (*entry)();
+  Cord  *next;
+  Cord  *prev;
+  char   name[16];
 };
 
 typedef struct {
@@ -23,7 +24,7 @@ typedef struct {
 } Braid;
 
 Braid *braidinit(void);
-void braidadd(Braid *b, void (*f)(void), usize stacksize);
+void braidadd(Braid *b, void (*f)(), usize stacksize);
 void braidlaunch(Braid *b);
 void braidyield(Braid *b);
 void braidexit(Braid *b);
