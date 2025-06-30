@@ -1,8 +1,8 @@
-libbraid -- C99 library for coroutines.
+libbraid -- ANSI C library for coroutines.
 
 WHAT
 
-  libbraid is heavily inspired by higan's libco and Russ Cox's libtask. 
+  libbraid is heavily inspired by higan's libco and Russ Cox's libtask.
 
   The goal is to provide the non-blocking IO features of libtask, while keeping
   the simplicity of libco. Additionally, libbraid should be highly portable,
@@ -11,7 +11,26 @@ WHAT
 
 TERMINOLOGY
 
-   * braid: a set of cooperatively scheduled cords.
-   * cord: a coroutine.
-   * context: the state of a cord, that is, its callee-saved registers.
+ * braid: a set of cooperatively scheduled cords.
+ * cord: a coroutine.
+ * context: the state of a cord, that is, its callee-saved registers.
+
+USAGE
+
+  libbraid provides two APIs: the low-level context switching API and a
+  higher-level cooperative scheduling API. The low-level API can be accessed
+  through `ctx.h`, which provides the following functions:
+
+    ctx_t newctx(void);
+
+          Creates a new, empty context.
+
+    ctx_t createctx(void (*f)(void), usize stacksize);
+
+          Creates a new context with entry point `f` and stack size `stacksize`.
+
+    void  swapctx(ctx_t *old, ctx_t new);
+
+          Swaps to the context `new`. The current context is saved in `old`.
+          Use `newctx` to create the first `old` context.
 

@@ -1,8 +1,7 @@
 .text
 
-// noreturn ctx_swap(Context *, Context *);
-.globl _ctx_swap
-_ctx_swap:
+.globl _swapctx
+_swapctx:
   mov x16, sp;
   stp x16, x30, [x0];
   ldp x16, x30, [x1];

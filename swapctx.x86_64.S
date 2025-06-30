@@ -1,9 +1,8 @@
 .intel_syntax noprefix
 .text
 
-// noreturn ctx_swap(Context *, Context *);
-.globl ctx_swap
-ctx_swap:
+.globl swapctx
+swapctx:
   mov [rdi], rsp;
   mov rsp, [rsi];
   mov [rdi + 0x08], rbp;

@@ -1,0 +1,5 @@
+*.o
+*.a
+
+cscope.out
+*.dSYM

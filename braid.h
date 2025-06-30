@@ -1,14 +1,32 @@
 #ifndef _BRAID_H
 #define _BRAID_H
-#include <stdint.h>
 
-typedef uintptr_t usize;
-typedef unsigned char uchar;
-typedef void* cord_t;
+#include "ctx.h"
 
-cord_t cordactive(void);
-cord_t cordcreate(void (*f)(void), usize stacksize);
-void cordswitch(cord_t c);
+typedef struct cord Cord;
+struct cord {
+  ctx_t ctx;
+  Cord *next;
+  Cord *prev;
+  char  name[16];
+};
+
+typedef struct {
+  Cord *head;
+  Cord *tail;
+} CordList;
+
+typedef struct {
+  ctx_t    sched;
+  Cord    *running;
+  CordList cords;
+} Braid;
+
+Braid *braidinit(void);
+void braidadd(Braid *b, void (*f)(void), usize stacksize);
+void braidlaunch(Braid *b);
+void braidyield(Braid *b);
+void braidexit(Braid *b);
 
 #endif
 

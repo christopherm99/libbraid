@@ -1,20 +1,20 @@
 #include <stdio.h>
 
-#include "braid.h"
+#include "ctx.h"
 
-static cord_t x, y;
+static ctx_t x, y;
 
 void fn(void) {
   printf("hello\n");
-  cordswitch(x);
+  swapctx(y, x);
 }
 
 int main(void) {
-  x = cordactive();
-  y = cordcreate(fn, 0x1000);
+  x = newctx();
+  y = createctx(fn, 0x1000);
 
   printf("switching to y\n");
-  cordswitch(y);
+  swapctx(x, y);
   printf("back to x\n");
 }
 
