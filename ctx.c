@@ -12,7 +12,10 @@ struct ctx { usize sp; usize x30; usize x19; usize regs[10]; double fpregs[8]; u
 #error "Unsupported architecture"
 #endif
 
-static void crash(void) { errx(EX_SOFTWARE, "a cord returned"); }
+struct ctx dummy = {0};
+ctx_t dummy_ctx = &dummy;
+
+static void crash(void) { errx(EX_SOFTWARE, "bottom of stack"); }
 
 ctx_t newctx(void) {
   struct ctx *c;

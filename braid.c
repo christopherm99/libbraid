@@ -16,11 +16,13 @@ static Cord *braidpop(Braid *b) {
   b->cords.head = c->next;
   if (b->cords.head) b->cords.head->prev = NULL;
   else b->cords.tail = NULL;
+  if (!(c->flags & CORD_SYSTEM)) b->cords.count--;
 
   return c;
 }
 
 static void braidappend(Braid *b, Cord *c) {
+  if (!(c->flags & CORD_SYSTEM)) b->cords.count++;
   c->next = NULL;
   c->prev = b->cords.tail;
   if (b->cords.tail) b->cords.tail->next = c;
@@ -42,13 +44,14 @@ static void ripcord(usize arg) {
   braidexit((Braid *)arg);
 }
 
-void braidadd(Braid *b, void (*f)(), usize stacksize) {
+void braidadd(Braid *b, void (*f)(), usize stacksize, uint flags) {
   Cord *c;
 
   if ((c = malloc(sizeof(Cord))) == NULL) err(EX_OSERR, "braidadd: malloc");
   memset(c, 0, sizeof(Cord));
   c->ctx = createctx(ripcord, stacksize, (usize)b);
   c->entry = f;
+  c->flags = flags;
 
   braidappend(b, c);
 }
@@ -59,9 +62,15 @@ void braidlaunch(Braid *b) {
   b->sched = newctx();
 
   for (;;) {
-    if ((c = braidpop(b)) == NULL) return;
+    if ((c = braidpop(b)) == NULL || b->cords.count == 0) break;
     b->running = c;
     swapctx(b->sched, c->ctx);
+  }
+
+  free(b->sched);
+  for (c = b->cords.head; c != NULL; c = c->next) {
+    free(c->ctx);
+    free(c);
   }
 }
 
@@ -70,5 +79,9 @@ void braidyield(Braid *b) {
   swapctx(b->running->ctx, b->sched);
 }
 
-void braidexit(Braid *b) { swapctx(b->running->ctx, b->sched); }
+void braidexit(Braid *b) {
+  free(b->running->ctx);
+  free(b->running);
+  swapctx(dummy_ctx, b->sched);
+}
 
