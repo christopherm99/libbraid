@@ -16,5 +16,6 @@ int main(void) {
   printf("switching to y\n");
   swapctx(x, y);
   printf("back to x\n");
+  return 0;
 }
 

@@ -23,8 +23,9 @@ void bar(void) {
 
 int main(void) {
   b = braidinit();
-  braidadd(b, foo, 1024);
-  braidadd(b, bar, 1024);
+  braidadd(b, foo, 65536);
+  braidadd(b, bar, 65536);
   braidlaunch(b);
+  return 0;
 }
 
