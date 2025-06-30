@@ -13,7 +13,7 @@ TERMINOLOGY
 
  * braid: a set of cooperatively scheduled cords.
  * cord: a coroutine.
- * context: the state of a cord, that is, its callee-saved registers.
+ * context: a set of registers and stack that can be switched to.
 
 USAGE
 
@@ -25,12 +25,41 @@ USAGE
 
           Creates a new, empty context.
 
-    ctx_t createctx(void (*f)(void), usize stacksize);
+    ctx_t createctx(void (*f)(usize), usize stacksize, usize arg);
 
           Creates a new context with entry point `f` and stack size `stacksize`.
+          When switching to this context, `arg` will be passed to `f`.
 
     void  swapctx(ctx_t *old, ctx_t new);
 
           Swaps to the context `new`. The current context is saved in `old`.
           Use `newctx` to create the first `old` context.
+
+  The higher-level API is available through `braid.h`, which provides the
+  following functions:
+
+    Braid *braidinit(void);
+
+          Creates a new, uninitialized braid.
+
+    void  braidadd(Braid *b, void (*f)(), usize stacksize);
+
+          Adds a new cord to the braid with entry point `f` and stack size
+          `stacksize`. The cord will be scheduled cooperatively with other
+          cords in the braid.
+
+    void  braidlaunch(Braid *b);
+
+          Launches the braid scheduler, which continues executing until all
+          cords have exited.
+
+    void  braidyield(Braid *b);
+
+          Called by a cord, yielding control back to the braid scheduler.
+
+    void  braidexit(Braid *b);
+
+          Called by a cord to exit the braid. The cord will be removed from the
+          braid and will not be scheduled again. If this was the last cord,
+          braidlaunch will return.
 
