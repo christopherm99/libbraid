@@ -6,33 +6,19 @@
 #define CORD_NORMAL 0x00
 #define CORD_SYSTEM 0x01
 
-typedef struct cord Cord;
-struct cord {
-  ctx_t  ctx;
-  void (*entry)();
-  Cord  *next;
-  Cord  *prev;
-  uint   flags;
-  char   name[16];
-};
+typedef void * braid_t;
+typedef void * cord_t;
 
-typedef struct {
-  Cord *head;
-  Cord *tail;
-  uint  count;
-} CordList;
-
-typedef struct {
-  ctx_t    sched;
-  Cord    *running;
-  CordList cords;
-} Braid;
-
-Braid *braidinit(void);
-void braidadd(Braid *b, void (*f)(), usize stacksize, uint flags);
-void braidlaunch(Braid *b);
-void braidyield(Braid *b);
-void braidexit(Braid *b);
+braid_t braidinit(void);
+void    braidadd(braid_t b, void (*f)(braid_t), usize stacksize, uchar flags);
+void    braidaddcord(braid_t b, cord_t c, usize retval);
+void    braidstart(braid_t b);
+void    braidyield(braid_t b);
+usize   braidblock(braid_t b);
+void    braidexit(braid_t b);
+cord_t  braidcurr(braid_t b);
+uint    braidcnt(braid_t *b);
+void  **braiddata(braid_t b, uchar key);
 
 #endif
 

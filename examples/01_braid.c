@@ -1,10 +1,13 @@
+/* Copyright (c) 2025 Christopher Milan; see LICENSE
+ *
+ * This file demonstrates the braid API.
+ */
+
 #include <stdio.h>
 
 #include "braid.h"
 
-static Braid *b;
-
-void foo(void) {
+void foo(braid_t b) {
   int i;
   for (i = 0; i < 5; i++) {
     printf("foo %d\n", i);
@@ -13,7 +16,7 @@ void foo(void) {
   printf("foo done\n");
 }
 
-void bar(void) {
+void bar(braid_t b) {
   int i;
   for (i = 0; i < 5; i++) {
     printf("bar %d\n", i);
@@ -22,10 +25,10 @@ void bar(void) {
 }
 
 int main(void) {
-  b = braidinit();
+  braid_t b = braidinit();
   braidadd(b, foo, 65536, CORD_NORMAL);
   braidadd(b, bar, 65536, CORD_NORMAL);
-  braidlaunch(b);
+  braidstart(b);
   return 0;
 }
 

@@ -1,3 +1,9 @@
+/* Copyright (c) 2025 Christopher Milan; see LICENSE
+ *
+ * This file demonstates the ctx API. Understanding the ctx API is not
+ * required to use the higher-level braid API.
+ */
+
 #include <stdio.h>
 
 #include "ctx.h"

@@ -21,45 +21,102 @@ USAGE
   higher-level cooperative scheduling API. The low-level API can be accessed
   through `ctx.h`, which provides the following functions:
 
-    ctx_t newctx(void);
+    ctx_t   newctx(void);
 
-          Creates a new, empty context.
+            Creates a new, empty context.
 
-    ctx_t createctx(void (*f)(usize), usize stacksize, usize arg);
+    ctx_t   createctx(void (*f)(usize), usize stacksize, usize arg);
 
-          Creates a new context with entry point `f` and stack size `stacksize`.
-          When switching to this context, `arg` will be passed to `f`.
+            Creates a new context with entry point `f` and stack size
+            `stacksize`. When switching to this context, `arg` will be passed.
 
-    void  swapctx(ctx_t *old, ctx_t new);
+    void    swapctx(ctx_t *old, ctx_t new);
 
-          Swaps to the context `new`. The current context is saved in `old`.
-          Use `newctx` to create the first `old` context.
+            Swaps to the context `new`. The current context is saved in `old`.
+            Use `newctx` to create the first `old` context.
 
   The higher-level API is available through `braid.h`, which provides the
   following functions:
 
-    Braid *braidinit(void);
+    braid_t braidinit(void);
 
-          Creates a new, uninitialized braid.
+            Creates a new, uninitialized braid.
 
-    void  braidadd(Braid *b, void (*f)(), usize stacksize);
+    void    braidadd(braid_t b, void (*f)(braid_t), usize stacksize, uchar flags);
 
-          Adds a new cord to the braid with entry point `f` and stack size
-          `stacksize`. The cord will be scheduled cooperatively with other
-          cords in the braid.
+            Adds a new cord to the braid with entry point `f` and stack size
+            `stacksize`. The cord will be scheduled cooperatively with other
+            cords in the braid. The argument `b` will be passed to `f`. The
+            final argument `flags` sets the type of cord that is being created:
 
-    void  braidlaunch(Braid *b);
+            * CORD_NORMAL: a normal cord.
+            * CORD_SYSTEM: a cord that is ignored when deciding the braid size.
 
-          Launches the braid scheduler, which continues executing until all
-          cords have exited.
+    void    braidaddcord(braid_t b, cord_t c, usize retval);
 
-    void  braidyield(Braid *b);
+            Adds an existing cord `c` to the braid `b`. This function is mostly
+            used for plumbing blocking operations (see `braidblock`). If this
+            cord was stopped by `braidblock`, `retval` is the value that will
+            be returned from the `braidblock` call.
 
-          Called by a cord, yielding control back to the braid scheduler.
+    void    braidstart(braid_t b);
 
-    void  braidexit(Braid *b);
+            Launches the braid scheduler, which continues executing until all
+            cords have exited.
 
-          Called by a cord to exit the braid. The cord will be removed from the
-          braid and will not be scheduled again. If this was the last cord,
-          braidlaunch will return.
+    void    braidyield(braid_t b);
+
+            Called by a cord, yielding control back to the braid scheduler.
+
+    usize   braidblock(braid_t b);
+
+            Called by a cord to block itself. The cord will not be scheduled
+            again until it is added back to the braid with `braidaddcord`.
+            The return value is determined by the how the cord was added back
+            to the braid (see `braidaddcord`).
+
+    void    braidexit(braid_t b);
+
+            Called by a cord to exit the braid. The cord will be removed from the
+            braid and will not be scheduled again. If the braid size is now 0,
+            will cause braidlaunch to return.
+
+    cord_t  braidcurr(braid_t b);
+
+            Returns the currently scheduled cord in the braid `b`.
+
+    uint    braidcnt(braid_t b);
+
+            Returns the number of (non-system) scheduled cords in the braid `b`.
+
+    void  **braiddata(braid_t b, uchar key);
+
+            Returns a pointer to braid-shared storage for the given key. If the
+            key is not already present, a new pointer will be allocated.
+
+            NB: the non-blocking IO API stores data under the key 0xFD. Thusly,
+            if you use this API, do not use this key for your own data.
+
+  Non-blocking IO is available through `fd.h`.
+
+    void    fdvisor(braid_t b);
+
+            This function should be installed as a system cord into any braid
+            using non-blocking IO.
+
+    short   fdpoll(braid_t b, int fd, short events);
+
+            Yields the current cord until one of the specified events (or error
+            events) occurs on the file descriptor `fd`. The `events` argument
+            is the same as in `poll(2)`, as is the return value.
+
+    int     fdread(braid_t b, int fd, void *buf, size_t count);
+
+            Yields the current cord until `poll(2)` indicates that the file
+            descriptor `fd` is ready for reading, then performs a `read(2)`.
+
+    int     fdwrite(braid_t b, int fd, const void *buf, size_t count);
+
+            Yields the current cord until `poll(2)` indicates that the file
+            descriptor `fd` is ready for writing, then performs a `write(2)`.
 

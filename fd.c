@@ -1,0 +1,90 @@
+#include "braid.h"
+
+#include <err.h>
+#include <poll.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sysexits.h>
+#include <unistd.h>
+
+#define BRAID_FD_KEY 0xFD
+#define POLLIMPLICIT POLLERR | POLLHUP | POLLNVAL
+
+struct fdctx {
+  cord_t *cords;
+  struct pollfd *pfds;
+  uint cnt, cap;
+};
+
+static void blocked_append(struct fdctx *ctx, cord_t c, struct pollfd *pfd) {
+  if (ctx->cnt + 1 > ctx->cap) {
+    ctx->cap = (ctx->cap == 0) ? 4 : ctx->cap * 2;
+    if ((ctx->cords = realloc(ctx->cords, ctx->cap * sizeof(cord_t))) == NULL ||
+        (ctx->pfds = realloc(ctx->pfds, ctx->cap * sizeof(struct pollfd))) == NULL)
+      err(EX_OSERR, "blocked_append: realloc");
+  }
+  ctx->cords[ctx->cnt] = c;
+  ctx->pfds[ctx->cnt++] = *pfd;
+}
+
+static void blocked_remove(struct fdctx *ctx, cord_t c) {
+  uint i;
+  for (i = 0; i < ctx->cnt; i++) {
+    if (ctx->cords[i] == c) {
+      memmove(&ctx->cords[i], &ctx->cords[i + 1], (ctx->cnt - i - 1) * sizeof(cord_t));
+      memmove(&ctx->pfds[i], &ctx->pfds[i + 1], (ctx->cnt - i - 1) * sizeof(struct pollfd));
+      ctx->cnt--;
+      return;
+    }
+  }
+  warnx("blocked_remove: cord not found");
+}
+
+void fdvisor(braid_t b) {
+  struct fdctx *ctx;
+
+  /* TODO: this is never freed? */
+  if ((ctx = *braiddata(b, BRAID_FD_KEY) = malloc(sizeof(struct fdctx))) == NULL) err(EX_OSERR, "fdvisor: malloc");
+  memset(ctx, 0, sizeof(struct fdctx));
+
+  for (;;) {
+    if (ctx->cnt == 0) braidyield(b);
+    else {
+      int rc;
+      if ((rc = poll(ctx->pfds, ctx->cnt, braidcnt(b) ? 0 : -1)) < 0)
+        err(EX_OSERR, "fdvisor: poll");
+      if (rc == 0) braidyield(b);
+      else {
+        uint i;
+        for (i = 0; i < ctx->cnt; i++) {
+          if (ctx->pfds[i].revents & (POLLIMPLICIT | ctx->pfds[i].events)) {
+            blocked_remove(ctx, ctx->cords[i]);
+            braidaddcord(b, ctx->cords[i], ctx->pfds[i].revents);
+          }
+        }
+      }
+    }
+  }
+}
+
+short fdpoll(braid_t b, int fd, short events) {
+  struct fdctx *ctx = *braiddata(b, BRAID_FD_KEY);
+  struct pollfd p;
+
+  p.fd = fd;
+  p.events = events;
+  blocked_append(ctx, braidcurr(b), &p);
+
+  return (short)braidblock(b);
+}
+
+int fdread(braid_t b, int fd, void *buf, size_t count) {
+  fdpoll(b, fd, POLLIN);
+  return read(fd, buf, count);
+}
+
+int fdwrite(braid_t b, int fd, const void *buf, size_t count) {
+  fdpoll(b, fd, POLLOUT);
+  return write(fd, buf, count);
+}
+

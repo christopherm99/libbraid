@@ -1,7 +1,7 @@
-CFLAGS := -Wall -Wextra -Werror -Wno-strict-prototypes -pedantic -ansi -g
+CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g
 MACHINE := $(shell uname -m)
 
-.PHONY: all clean
+.PHONY: all clean examples
 
 all: libbraid.a
 
@@ -17,12 +17,10 @@ braid.o: braid.c
 swapctx.$(MACHINE).o: swapctx.$(MACHINE).S
 	$(AS) -c -o $@ $<
 
-test: libbraid.a test.c
-	$(CC) $(CFLAGS) -o test test.c -L. -lbraid
-
-testbraid: libbraid.a testbraid.c
-	$(CC) $(CFLAGS) -o testbraid testbraid.c -L. -lbraid
+examples: libbraid.a
+	$(MAKE) -C examples
 
 clean:
-	rm -f *.o libbraid.a test testbraid
+	rm -f *.o libbraid.a
+	$(MAKE) -C examples clean
 
