@@ -6,7 +6,7 @@
 
 #include <stdio.h>
 
-#include "ctx.h"
+#include <braid/ctx.h>
 
 static ctx_t x, y;
 

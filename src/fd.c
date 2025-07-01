@@ -1,4 +1,5 @@
-#include "fd.h"
+#include <braid.h>
+#include <braid/fd.h>
 
 #include <err.h>
 #include <poll.h>
@@ -6,8 +7,6 @@
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
-
-#include "braid.h"
 
 #define POLLIMPLICIT POLLERR | POLLHUP | POLLNVAL
 

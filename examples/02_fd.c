@@ -9,8 +9,8 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-#include "braid.h"
-#include "fd.h"
+#include <braid.h>
+#include <braid/fd.h>
 
 
 void producer(braid_t b, usize fd) {

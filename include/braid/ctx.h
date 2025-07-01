@@ -1,7 +1,7 @@
-#ifndef _CTX_H
-#define _CTX_H
+#ifndef _BRAID_CTX_H
+#define _BRAID_CTX_H
 
-#include "types.h"
+#include <braid/types.h>
 
 extern ctx_t dummy_ctx;
 ctx_t newctx(void);

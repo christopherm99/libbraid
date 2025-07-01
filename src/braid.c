@@ -1,4 +1,5 @@
-#include "braid.h"
+#include <braid.h>
+#include <braid/ctx.h>
 
 #include <err.h>
 #ifdef EBUG
@@ -7,8 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
-
-#include "ctx.h"
 
 typedef struct cord Cord;
 

@@ -1,13 +1,13 @@
 /* Copyright (c) 2025 Christopher Milan; see LICENSE
  *
- * This file demostrates the use of channels in braids.
+ * This file demonstrates the use of channels in braids.
  */
 
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "braid.h"
-#include "ch.h"
+#include <braid.h>
+#include <braid/ch.h>
 
 int goal = 100;
 

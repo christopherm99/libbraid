@@ -1,7 +1,7 @@
 #ifndef _BRAID_CH_H
 #define _BRAID_CH_H
 
-#include "braid.h"
+#include <braid.h>
 
 #define BRAID_CH_KEY 0xFC
 

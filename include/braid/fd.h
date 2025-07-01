@@ -1,7 +1,7 @@
-#ifndef _FD_H
-#define _FD_H
+#ifndef _BRAID_FD_H
+#define _BRAID_FD_H
 
-#include "braid.h"
+#include <braid.h>
 #include <stddef.h>
 
 #define BRAID_FD_KEY 0xFD

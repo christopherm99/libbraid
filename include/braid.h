@@ -1,7 +1,7 @@
 #ifndef _BRAID_H
 #define _BRAID_H
 
-#include "types.h"
+#include <braid/types.h>
 
 #define CORD_NORMAL 0x00
 #define CORD_SYSTEM 0x01

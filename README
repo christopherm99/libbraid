@@ -19,7 +19,7 @@ USAGE
 
   libbraid provides two APIs: the low-level context switching API and a
   higher-level cooperative scheduling API. The low-level API can be accessed
-  through `ctx.h`, which provides the following functions:
+  through `braid/ctx.h`, which provides the following functions:
 
     ctx_t   newctx(void);
 
@@ -101,7 +101,7 @@ USAGE
             channel API stores data under the key 0xFC. Thusly, if you use any
             of these APIs, do not use their keys for your own data.
 
-  Non-blocking IO is available through `fd.h`.
+  Non-blocking IO is available through `braid/fd.h`.
 
     void    fdvisor(braid_t b, usize _);
 
@@ -124,7 +124,7 @@ USAGE
             Yields the current cord until `poll(2)` indicates that the file
             descriptor `fd` is ready for writing, then performs a `write(2)`.
 
-  Go-style (unbuffered) channels are available through `ch.h`.
+  Go-style (unbuffered) channels are available through `braid/ch.h`.
 
     void    chvisor(braid_t b, usize _);
 
@@ -151,4 +151,23 @@ USAGE
             Receives data from the channel `ch` in the braid `b`, blocking until
             data is available. Returns the received data, or 0 if the channel was
             destroyed.
+
+  Clock routines are available through `braid/ck.h`.
+
+    void    ckvisor(braid_t b, usize _);
+
+            This function should be installed as a system cord into any braid
+            using any of the clock routines. The argument `_` is ignored.
+
+    void    ckwait(braid_t b, const struct timespec *ts);
+
+            Yields until the specified time has passed.
+
+    void    cknsleep(braid_t b, ulong ns);
+    void    ckusleep(braid_t b, ulong us);
+    void    ckmsleep(braid_t b, ulong ms);
+    void    cksleep(braid_t b, ulong s);
+    
+            Sleeps for the specified amount of time, yielding the current cord
+            until the time has passed.
 

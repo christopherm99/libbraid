@@ -1,26 +1,27 @@
-SRCS := $(wildcard *.c)
-OBJS := $(SRCS:.c=.o)
+SRCS := $(wildcard src/*.c)
+OBJS := $(patsubst src/%.c, build/%.o, $(SRCS))
+$(shell mkdir -p build)
 
-CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g
+CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g -Iinclude
 MACHINE := $(shell uname -m)
 
 .PHONY: all clean examples
 
-all: libbraid.a
+all: build/libbraid.a examples
 
-libbraid.a: $(OBJS) swapctx.$(MACHINE).o
+build/libbraid.a: $(OBJS) build/swapctx.$(MACHINE).o
 	$(AR) rcs $@ $^
 
-$(OBJS): %.o: %.c
-	$(CC) $(CFLAGS) -c $<
+$(OBJS): build/%.o: src/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
-swapctx.$(MACHINE).o: swapctx.$(MACHINE).S
+build/swapctx.$(MACHINE).o: src/swapctx.$(MACHINE).S
 	$(AS) -c -o $@ $<
 
-examples: libbraid.a
+examples: build/libbraid.a
 	$(MAKE) -C examples
 
 clean:
-	rm -f *.o libbraid.a
+	rm -rf build/*
 	$(MAKE) -C examples clean
 

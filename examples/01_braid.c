@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 
-#include "braid.h"
+#include <braid.h>
 
 void foo(braid_t b, usize arg) {
   int i;

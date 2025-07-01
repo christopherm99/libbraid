@@ -1,12 +1,11 @@
-#include "ch.h"
+#include <braid.h>
+#include <braid/ch.h>
 
 #include <err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
-
-#include "braid.h"
 
 struct chctx {
   struct {
