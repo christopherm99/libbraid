@@ -118,12 +118,14 @@ void braidstart(braid_t _b) {
   }
 
   free(b->sched);
-  while (c) {
-    Cord *tmp = c;
-    c = c->next;
-    free(tmp->ctx);
-    free(tmp->name);
-    free(tmp);
+  if (b->cords.count + b->cords.blocked) {
+    while (c) {
+      Cord *tmp = c;
+      c = c->next;
+      free(tmp->ctx);
+      free(tmp->name);
+      free(tmp);
+    }
   }
 
   d = b->data;
