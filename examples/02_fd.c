@@ -19,9 +19,9 @@ void producer(braid_t b) {
   int i;
   const char *msg = "Hello!";
   for (i = 0; i < 5; i++) {
-    printf("sending: %s\n", msg);
     if (fdwrite(b, pipefd[1], msg, strlen(msg)) < 0)
       err(EX_OSERR, "producer: fdwrite");
+    printf("sent: %s\n", msg);
   }
   close(pipefd[1]);
 }
@@ -51,5 +51,6 @@ int main(void) {
   braidadd(b, consumer, 65536, "consumer", CORD_NORMAL);
 
   braidstart(b);
+  return 0;
 }
 

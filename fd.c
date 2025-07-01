@@ -58,8 +58,8 @@ void fdvisor(braid_t b) {
         uint i;
         for (i = 0; i < ctx->cnt; i++) {
           if (ctx->pfds[i].revents & (POLLIMPLICIT | ctx->pfds[i].events)) {
-            blocked_remove(ctx, ctx->cords[i]);
             braidunblock(b, ctx->cords[i], ctx->pfds[i].revents);
+            blocked_remove(ctx, ctx->cords[i--]);
           }
         }
       }

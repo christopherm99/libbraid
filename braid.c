@@ -61,6 +61,13 @@ static void braidappend(Braid *b, Cord *c) {
   b->cords.tail = c;
 }
 
+static char *_strdup(const char *s) {
+  char *d;
+  if (s == NULL) return NULL;
+  if ((d = malloc(strlen(s) + 1))) strcpy(d, s);
+  return d;
+}
+
 braid_t braidinit(void) {
   Braid *b;
 
@@ -82,7 +89,7 @@ void braidadd(braid_t b, void (*f)(braid_t), usize stacksize, const char *name, 
   memset(c, 0, sizeof(Cord));
   c->ctx = createctx(ripcord, stacksize, (usize)b);
   c->entry = f;
-  c->name = name ? strdup(name) : NULL;
+  c->name = _strdup(name);
   c->flags = flags;
 
   braidappend(b, c);

@@ -1,7 +1,7 @@
 SRCS := $(wildcard *.c)
 OBJS := $(SRCS:.c=.o)
 
-CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g -DEBUG
+CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g
 MACHINE := $(shell uname -m)
 
 .PHONY: all clean examples
