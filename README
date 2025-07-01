@@ -42,22 +42,18 @@ USAGE
 
             Creates a new, uninitialized braid.
 
-    void    braidadd(braid_t b, void (*f)(braid_t), usize stacksize, uchar flags);
+    void    braidadd(braid_t b, void (*f)(braid_t), usize stacksize,
+                     const char *name, uchar flags);
 
             Adds a new cord to the braid with entry point `f` and stack size
             `stacksize`. The cord will be scheduled cooperatively with other
             cords in the braid. The argument `b` will be passed to `f`. The
-            final argument `flags` sets the type of cord that is being created:
+            `name` argument is nullable, and used for debuging (compile with
+            `-DEBUG`. The final argument `flags` sets the type of cord that is
+            being created:
 
-            * CORD_NORMAL: a normal cord.
-            * CORD_SYSTEM: a cord that is ignored when deciding the braid size.
-
-    void    braidaddcord(braid_t b, cord_t c, usize retval);
-
-            Adds an existing cord `c` to the braid `b`. This function is mostly
-            used for plumbing blocking operations (see `braidblock`). If this
-            cord was stopped by `braidblock`, `retval` is the value that will
-            be returned from the `braidblock` call.
+              * CORD_NORMAL: a normal cord.
+              * CORD_SYSTEM: ignored when deciding the braid size.
 
     void    braidstart(braid_t b);
 
@@ -71,9 +67,16 @@ USAGE
     usize   braidblock(braid_t b);
 
             Called by a cord to block itself. The cord will not be scheduled
-            again until it is added back to the braid with `braidaddcord`.
+            again until it is added back to the braid with `braidunblock`.
             The return value is determined by the how the cord was added back
-            to the braid (see `braidaddcord`).
+            to the braid (see `braiunblock`).
+
+    void    braidunblock(braid_t b, cord_t c, usize val);
+
+            Adds an existing cord `c` to the braid `b`. This function is mostly
+            used for plumbing blocking operations (see `braidblock`). If this
+            cord was stopped by `braidblock`, `val` is the value that will be
+            returned from the `braidblock` call.
 
     void    braidexit(braid_t b);
 

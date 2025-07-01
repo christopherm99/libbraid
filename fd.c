@@ -59,7 +59,7 @@ void fdvisor(braid_t b) {
         for (i = 0; i < ctx->cnt; i++) {
           if (ctx->pfds[i].revents & (POLLIMPLICIT | ctx->pfds[i].events)) {
             blocked_remove(ctx, ctx->cords[i]);
-            braidaddcord(b, ctx->cords[i], ctx->pfds[i].revents);
+            braidunblock(b, ctx->cords[i], ctx->pfds[i].revents);
           }
         }
       }

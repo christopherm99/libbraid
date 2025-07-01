@@ -1,17 +1,17 @@
-CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g
+SRCS := $(wildcard *.c)
+OBJS := $(SRCS:.c=.o)
+
+CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g -DEBUG
 MACHINE := $(shell uname -m)
 
 .PHONY: all clean examples
 
 all: libbraid.a
 
-libbraid.a: ctx.o braid.o swapctx.$(MACHINE).o
+libbraid.a: $(OBJS) swapctx.$(MACHINE).o
 	$(AR) rcs $@ $^
 
-ctx.o: ctx.c
-	$(CC) $(CFLAGS) -c $<
-
-braid.o: braid.c
+$(OBJS): %.o: %.c
 	$(CC) $(CFLAGS) -c $<
 
 swapctx.$(MACHINE).o: swapctx.$(MACHINE).S

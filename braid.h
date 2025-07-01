@@ -10,11 +10,11 @@ typedef void * braid_t;
 typedef void * cord_t;
 
 braid_t braidinit(void);
-void    braidadd(braid_t b, void (*f)(braid_t), usize stacksize, uchar flags);
-void    braidaddcord(braid_t b, cord_t c, usize retval);
+void    braidadd(braid_t b, void (*f)(braid_t), usize stacksize, const char *name, uchar flags);
 void    braidstart(braid_t b);
 void    braidyield(braid_t b);
 usize   braidblock(braid_t b);
+void    braidunblock(braid_t b, cord_t c, usize val);
 void    braidexit(braid_t b);
 cord_t  braidcurr(braid_t b);
 uint    braidcnt(braid_t *b);

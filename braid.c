@@ -1,6 +1,9 @@
 #include "braid.h"
 
 #include <err.h>
+#ifdef EBUG
+#include <stdio.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
@@ -14,7 +17,7 @@ struct cord {
   void (*entry)(braid_t);
   usize  retval;
   uchar  flags;
-  char   name[16];
+  char  *name;
   Cord  *next;
   Cord  *prev;
 };
@@ -32,6 +35,7 @@ typedef struct {
     Cord *head;
     Cord *tail;
     uint  count;
+    uint  blocked;
   } cords;
   struct data *data;
 } Braid;
@@ -57,11 +61,6 @@ static void braidappend(Braid *b, Cord *c) {
   b->cords.tail = c;
 }
 
-void braidaddcord(braid_t b, cord_t c, usize retval) {
-  ((Braid *)b)->running->retval = retval;
-  braidappend((Braid *)b, (Cord *)c);
-}
-
 braid_t braidinit(void) {
   Braid *b;
 
@@ -76,39 +75,50 @@ static void ripcord(usize arg) {
   braidexit((Braid *)arg);
 }
 
-void braidadd(braid_t b, void (*f)(braid_t), usize stacksize, uchar flags) {
+void braidadd(braid_t b, void (*f)(braid_t), usize stacksize, const char *name, uchar flags) {
   Cord *c;
 
   if ((c = malloc(sizeof(Cord))) == NULL) err(EX_OSERR, "braidadd: malloc");
   memset(c, 0, sizeof(Cord));
   c->ctx = createctx(ripcord, stacksize, (usize)b);
   c->entry = f;
+  c->name = name ? strdup(name) : NULL;
   c->flags = flags;
 
   braidappend(b, c);
 }
 
-void braidstart(braid_t b) {
+void braidstart(braid_t _b) {
+  Braid *b = (Braid *)_b;
   Cord *c;
   struct data *d;
 
-  ((Braid *)b)->sched = newctx();
+  b->sched = newctx();
 
   for (;;) {
-    if ((c = braidpop(b)) == NULL || ((Braid *)b)->cords.count == 0) break;
-    ((Braid *)b)->running = c;
-    swapctx(((Braid *)b)->sched, c->ctx);
+    if ((c = braidpop(b)) == NULL || (b->cords.count + b->cords.blocked) == 0) {
+#ifdef EBUG
+      printf("braidstart: done (%s)\n", c ? "system cords cancelled" : "all cords done");
+#endif
+      break;
+    }
+    b->running = c;
+#ifdef EBUG
+    printf("braidstart: running cord %s\n", c->name ? c->name : "unamed");
+#endif
+    swapctx(b->sched, c->ctx);
   }
 
-  free(((Braid *)b)->sched);
+  free(b->sched);
   while (c) {
     Cord *tmp = c;
     c = c->next;
     free(tmp->ctx);
+    free(tmp->name);
     free(tmp);
   }
 
-  d = ((Braid *)b)->data;
+  d = b->data;
   while (d) {
     struct data *tmp = d;
     d = d->next;
@@ -122,8 +132,18 @@ void braidyield(braid_t b) {
 }
 
 usize braidblock(braid_t b) {
+  ((Braid *)b)->cords.blocked++;
   swapctx(((Braid *)b)->running->ctx, ((Braid *)b)->sched);
   return ((Braid *)b)->running->retval;
+}
+
+void braidunblock(braid_t b, cord_t c, usize val) {
+  ((Braid *)b)->cords.blocked--;
+  ((Braid *)b)->running->retval = val;
+#ifdef EBUG
+  printf("braidunblock: unblocking cord %s\n", ((Cord *)c)->name ? ((Cord *)c)->name : "unamed");
+#endif
+  braidappend((Braid *)b, (Cord *)c);
 }
 
 void braidexit(braid_t b) {

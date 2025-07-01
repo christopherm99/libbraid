@@ -26,8 +26,8 @@ void bar(braid_t b) {
 
 int main(void) {
   braid_t b = braidinit();
-  braidadd(b, foo, 65536, CORD_NORMAL);
-  braidadd(b, bar, 65536, CORD_NORMAL);
+  braidadd(b, foo, 65536, "foo", CORD_NORMAL);
+  braidadd(b, bar, 65536, "bar", CORD_NORMAL);
   braidstart(b);
   return 0;
 }
