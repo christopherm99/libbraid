@@ -2,7 +2,7 @@ SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst src/%.c, build/%.o, $(SRCS))
 $(shell mkdir -p build)
 
-CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g -Iinclude
+CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g -Iinclude -D_POSIX_C_SOURCE=199309L
 MACHINE := $(shell uname -m)
 PREFIX ?= /usr/local
 
