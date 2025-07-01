@@ -4,6 +4,7 @@ $(shell mkdir -p build)
 
 CFLAGS := -Wall -Wextra -Werror -pedantic -ansi -g -Iinclude
 MACHINE := $(shell uname -m)
+PREFIX ?= /usr/local
 
 .PHONY: all clean examples
 
@@ -20,6 +21,13 @@ build/swapctx.$(MACHINE).o: src/swapctx.$(MACHINE).S
 
 examples: build/libbraid.a
 	$(MAKE) -C examples
+
+install: build/libbraid.a
+	install -d $(PREFIX)/lib
+	install -m 644 build/libbraid.a $(PREFIX)/lib/
+
+	install -d $(PREFIX)/include/braid
+	install -m 644 include/*.h $(PREFIX)/include/braid/
 
 clean:
 	rm -rf build/*
