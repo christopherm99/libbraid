@@ -68,12 +68,15 @@ void fdvisor(braid_t b) {
 }
 
 short fdpoll(braid_t b, int fd, short events) {
-  struct fdctx *ctx = *braiddata(b, BRAID_FD_KEY);
+  struct fdctx **ctx = (struct fdctx **)braiddata(b, BRAID_FD_KEY);
   struct pollfd p;
+
+  /* wait until fdvisor has run */
+  while (ctx == NULL) braidyield(b);
 
   p.fd = fd;
   p.events = events;
-  blocked_append(ctx, braidcurr(b), &p);
+  blocked_append(*ctx, braidcurr(b), &p);
 
   return (short)braidblock(b);
 }
