@@ -97,9 +97,10 @@ USAGE
             Returns a pointer to braid-shared storage for the given key. If the
             key is not already present, a new pointer will be allocated.
 
-            NB: the non-blocking IO API stores data under the key 0xFD and the
-            channel API stores data under the key 0xFC. Thusly, if you use any
-            of these APIs, do not use their keys for your own data.
+            NB: the channel API stores data under the key 0xFC, the non-blocking
+            IO API stores data under the key 0xFD, and the clock API stores
+            data under the key 0xFE. As such, if you use any of these APIs, do
+            not use their keys for your own data.
 
   Non-blocking IO is available through `braid/fd.h`.
 
