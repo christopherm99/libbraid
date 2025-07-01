@@ -1,4 +1,4 @@
-#include "braid.h"
+#include "fd.h"
 
 #include <err.h>
 #include <poll.h>
@@ -7,7 +7,8 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-#define BRAID_FD_KEY 0xFD
+#include "braid.h"
+
 #define POLLIMPLICIT POLLERR | POLLHUP | POLLNVAL
 
 struct fdctx {
@@ -40,16 +41,16 @@ static void blocked_remove(struct fdctx *ctx, cord_t c) {
   warnx("blocked_remove: cord not found");
 }
 
-void fdvisor(braid_t b) {
+void fdvisor(braid_t b, usize _) {
   struct fdctx *ctx;
+  (void)_;
 
-  /* TODO: this is never freed? */
+  /* FIXME: this is never freed? */
   if ((ctx = *braiddata(b, BRAID_FD_KEY) = malloc(sizeof(struct fdctx))) == NULL) err(EX_OSERR, "fdvisor: malloc");
   memset(ctx, 0, sizeof(struct fdctx));
 
   for (;;) {
-    if (ctx->cnt == 0) braidyield(b);
-    else {
+    if (ctx->cnt) {
       int rc;
       if ((rc = poll(ctx->pfds, ctx->cnt, braidcnt(b) ? 0 : -1)) < 0)
         err(EX_OSERR, "fdvisor: poll");
@@ -64,6 +65,7 @@ void fdvisor(braid_t b) {
         }
       }
     }
+    braidyield(b);
   }
 }
 
@@ -72,7 +74,7 @@ short fdpoll(braid_t b, int fd, short events) {
   struct pollfd p;
 
   /* wait until fdvisor has run */
-  while (ctx == NULL) braidyield(b);
+  while (!*ctx) braidyield(b);
 
   p.fd = fd;
   p.events = events;

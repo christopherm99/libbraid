@@ -7,27 +7,27 @@
 
 #include "braid.h"
 
-void foo(braid_t b) {
+void foo(braid_t b, usize arg) {
   int i;
   for (i = 0; i < 5; i++) {
-    printf("foo %d\n", i);
+    printf("foo %ld %d\n", arg, i);
     braidyield(b);
   }
   printf("foo done\n");
 }
 
-void bar(braid_t b) {
+void bar(braid_t b, usize arg) {
   int i;
   for (i = 0; i < 5; i++) {
-    printf("bar %d\n", i);
+    printf("bar %lx %d\n", arg, i);
     braidyield(b);
   }
 }
 
 int main(void) {
   braid_t b = braidinit();
-  braidadd(b, foo, 65536, "foo", CORD_NORMAL);
-  braidadd(b, bar, 65536, "bar", CORD_NORMAL);
+  braidadd(b, foo, 65536, "foo", CORD_NORMAL, 1337);
+  braidadd(b, bar, 65536, "bar", CORD_NORMAL, 0xDEADBEEF);
   braidstart(b);
   return 0;
 }

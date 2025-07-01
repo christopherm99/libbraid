@@ -7,7 +7,7 @@ WHAT
   The goal is to provide the non-blocking IO features of libtask, while keeping
   the simplicity of libco. Additionally, libbraid should be highly portable,
   just by writing a bit of assembly for saving and restoring contexts (and some
-  glue in `cordcreate`).
+  glue in `createctx`).
 
 TERMINOLOGY
 
@@ -42,15 +42,15 @@ USAGE
 
             Creates a new, uninitialized braid.
 
-    void    braidadd(braid_t b, void (*f)(braid_t), usize stacksize,
-                     const char *name, uchar flags);
+    void    braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize,
+                     const char *name, uchar flags, usize arg);
 
             Adds a new cord to the braid with entry point `f` and stack size
             `stacksize`. The cord will be scheduled cooperatively with other
-            cords in the braid. The argument `b` will be passed to `f`. The
-            `name` argument is nullable, and used for debuging (compile with
-            `-DEBUG`. The final argument `flags` sets the type of cord that is
-            being created:
+            cords in the braid. The argument `b` will be passed to `f`, along
+            with `arg`. The `name` argument is nullable, and used for debuging
+            (compile with `-DEBUG`. The `flags` arguemtn sets the type of cord
+            that is being created:
 
               * CORD_NORMAL: a normal cord.
               * CORD_SYSTEM: ignored when deciding the braid size.
@@ -97,15 +97,16 @@ USAGE
             Returns a pointer to braid-shared storage for the given key. If the
             key is not already present, a new pointer will be allocated.
 
-            NB: the non-blocking IO API stores data under the key 0xFD. Thusly,
-            if you use this API, do not use this key for your own data.
+            NB: the non-blocking IO API stores data under the key 0xFD and the
+            channel API stores data under the key 0xFC. Thusly, if you use any
+            of these APIs, do not use their keys for your own data.
 
   Non-blocking IO is available through `fd.h`.
 
-    void    fdvisor(braid_t b);
+    void    fdvisor(braid_t b, usize _);
 
             This function should be installed as a system cord into any braid
-            using non-blocking IO.
+            using non-blocking IO. The argument `_` is ignored.
 
     short   fdpoll(braid_t b, int fd, short events);
 
@@ -122,4 +123,32 @@ USAGE
 
             Yields the current cord until `poll(2)` indicates that the file
             descriptor `fd` is ready for writing, then performs a `write(2)`.
+
+  Go-style (unbuffered) channels are available through `ch.h`.
+
+    void    chvisor(braid_t b, usize _);
+
+            This function should be installed as a system cord into any braid
+            using channels. The argument `_` is ignored.
+
+    ch_t    chcreate(braid_t b);
+
+            Creeates a new channel in the braid `b`.
+
+    void    chdestroy(braid_t b, ch_t ch);
+
+            Destroys the channel `ch` in the braid `b`. All pending sends return
+            failed and all pending receives return 0.
+
+    uint    chsend(braid_t b, ch_t ch, usize data);
+
+            Sends `data` to the channel `ch` in the braid `b`, blocking until
+            the data is received. Returns 0 on success, or 1 if the channel was
+            destroyed.
+
+    usize   chrecv(braid_t b, ch_t ch);
+
+            Receives data from the channel `ch` in the braid `b`, blocking until
+            data is available. Returns the received data, or 0 if the channel was
+            destroyed.
 

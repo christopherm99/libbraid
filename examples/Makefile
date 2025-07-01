@@ -2,7 +2,7 @@ SRCS := $(wildcard *.c)
 OBJS := $(SRCS:.c=.o)
 PROGS := $(SRCS:.c=)
 
-CFLAGS := -Wall -Wextra -pedantic -ansi -I..
+CFLAGS := -Wall -Wextra -pedantic -std=c99 -I.. -Wno-incompatible-function-pointer-types
 LDFLAGS := -L.. -lbraid
 
 .PHONY: all clean

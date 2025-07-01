@@ -10,7 +10,7 @@ typedef void * braid_t;
 typedef void * cord_t;
 
 braid_t braidinit(void);
-void    braidadd(braid_t b, void (*f)(braid_t), usize stacksize, const char *name, uchar flags);
+void    braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char *name, uchar flags, usize arg);
 void    braidstart(braid_t b);
 void    braidyield(braid_t b);
 usize   braidblock(braid_t b);
