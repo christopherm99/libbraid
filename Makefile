@@ -27,7 +27,8 @@ install: build/libbraid.a
 	install -m 644 build/libbraid.a $(PREFIX)/lib/
 
 	install -d $(PREFIX)/include/braid
-	install -m 644 include/*.h $(PREFIX)/include/braid/
+	install -m 644 include/*.h $(PREFIX)/include/
+	install -m 644 include/braid/*.h $(PREFIX)/include/braid/
 
 clean:
 	rm -rf build/*

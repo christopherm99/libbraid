@@ -125,6 +125,28 @@ USAGE
             Yields the current cord until `poll(2)` indicates that the file
             descriptor `fd` is ready for writing, then performs a `write(2)`.
 
+  TCP/IP non-blocking IO is available through `braid/tcp.h`.
+
+    int     tcpdial(braid_t b, const char *host, int port);
+
+            Connects to the specified host and port. The `host` argument shoudl
+            be specified like "127.0.0.1" or "example.com". Do not call this
+            function from a braid that does not have the `fdvisor` system cord.
+            Returns the connected socket.
+
+    int     tcplisten(const char *host, int port);
+
+            Helper function to create a TCP/IP listening socket. The `host`
+            argument can be NULL or "localhost" to listen on all interfaces,
+            or a specific IP address in the same format as `tcpdial`. Returns
+            the listening socket.
+
+    int     tcpaccept(braid_t b, int fd);
+
+            Non-blocking waits for a connection on the listening socket `fd`.
+            Do not call this function from a braid that does not have the
+            `fdvisor` system cord. Returns the accepted socket.
+
   Go-style (unbuffered) channels are available through `braid/ch.h`.
 
     void    chvisor(braid_t b, usize _);
