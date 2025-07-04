@@ -69,8 +69,9 @@ static char *_strdup(const char *s) {
 void braidinfo(braid_t b) {
   cord_t c;
 
+  printf("%c %-20s (running)\n", (b->running->flags & CORD_SYSTEM) ? 'S' : ' ', b->running->name ? b->running->name : "unamed");
   for (c = b->cords.head; c; c = c->next)
-    printf("%c %-20s %s\n", (c->flags & CORD_SYSTEM) ? 'S' : ' ', c->name ? c->name : "unamed", c == b->running ? "(running)" : "(ready)");
+    printf("%c %-20s (ready)\n", (c->flags & CORD_SYSTEM) ? 'S' : ' ', c->name ? c->name : "unamed");
   for (c = b->blocked.head; c; c = c->next)
     printf("%c %-20s (blocked)\n", (c->flags & CORD_SYSTEM) ? 'S' : ' ', c->name ? c->name : "unamed");
 }
@@ -151,8 +152,11 @@ void braidyield(braid_t b) {
 
 usize braidblock(braid_t b) {
   b->blocked.count++;
-  b->running->next = b->blocked.head ? NULL : b->blocked.head;
+  b->running->next = b->blocked.head ? b->blocked.head : NULL;
   b->blocked.head = b->running;
+#ifdef EBUG
+  printf("braidblock: blocking cord %s\n", b->running->name ? b->running->name : "unamed");
+#endif
   swapctx(b->running->ctx, b->sched);
   return b->running->val;
 }
@@ -166,7 +170,7 @@ void braidunblock(braid_t b, cord_t c, usize val) {
       else b->blocked.head = curr->next;
       goto found;
     }
-  errx(EX_SOFTWARE, "braidunblock: cord not found in blocked list");
+  errx(EX_SOFTWARE, "braidunblock: cord (%s) not found in blocked list", c->name ? c->name : "unamed");
 found:
   c->val = val;
   braidappend(b, c);
