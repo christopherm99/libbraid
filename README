@@ -102,6 +102,10 @@ USAGE
             data under the key 0xFE. As such, if you use any of these APIs, do
             not use their keys for your own data.
 
+    void    braidinfo(braid_t b);
+
+            Prints the state of all the cords in the braid `b` to stdout.
+
   Non-blocking IO is available through `braid/fd.h`.
 
     void    fdvisor(braid_t b, usize _);

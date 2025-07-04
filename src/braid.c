@@ -2,9 +2,7 @@
 #include <braid/ctx.h>
 
 #include <err.h>
-#ifdef EBUG
 #include <stdio.h>
-#endif
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
@@ -32,8 +30,11 @@ struct braid {
     cord_t head;
     cord_t tail;
     uint   count;
-    uint   blocked;
   } cords;
+  struct {
+    cord_t head;
+    uint   count;
+  } blocked;
   struct data *data;
 };
 
@@ -63,6 +64,15 @@ static char *_strdup(const char *s) {
   if (s == NULL) return NULL;
   if ((d = malloc(strlen(s) + 1))) strcpy(d, s);
   return d;
+}
+
+void braidinfo(braid_t b) {
+  cord_t c;
+
+  for (c = b->cords.head; c; c = c->next)
+    printf("%c %-20s %s\n", (c->flags & CORD_SYSTEM) ? 'S' : ' ', c->name ? c->name : "unamed", c == b->running ? "(running)" : "(ready)");
+  for (c = b->blocked.head; c; c = c->next)
+    printf("%c %-20s (blocked)\n", (c->flags & CORD_SYSTEM) ? 'S' : ' ', c->name ? c->name : "unamed");
 }
 
 braid_t braidinit(void) {
@@ -100,7 +110,7 @@ void braidstart(braid_t b) {
   b->sched = newctx();
 
   for (;;) {
-    if ((b->cords.count + b->cords.blocked) && (c = braidpop(b)) != NULL) {
+    if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
       b->running = c;
 #ifdef EBUG
     printf("braidstart: running cord %s\n", c->name ? c->name : "unamed");
@@ -115,7 +125,7 @@ void braidstart(braid_t b) {
   }
 
   free(b->sched);
-  if (b->cords.count + b->cords.blocked) {
+  if (b->cords.count + b->blocked.count) {
     while (c) {
       cord_t tmp = c;
       c = c->next;
@@ -140,13 +150,24 @@ void braidyield(braid_t b) {
 }
 
 usize braidblock(braid_t b) {
-  b->cords.blocked++;
+  b->blocked.count++;
+  b->running->next = b->blocked.head ? NULL : b->blocked.head;
+  b->blocked.head = b->running;
   swapctx(b->running->ctx, b->sched);
   return b->running->val;
 }
 
 void braidunblock(braid_t b, cord_t c, usize val) {
-  b->cords.blocked--;
+  cord_t prev, curr;
+  b->blocked.count--;
+  for (prev = NULL, curr = b->blocked.head; curr; prev = curr, curr = curr->next)
+    if (curr == c) {
+      if (prev) prev->next = curr->next;
+      else b->blocked.head = curr->next;
+      goto found;
+    }
+  errx(EX_SOFTWARE, "braidunblock: cord not found in blocked list");
+found:
   c->val = val;
   braidappend(b, c);
 #ifdef EBUG

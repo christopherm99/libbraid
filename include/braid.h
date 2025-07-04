@@ -19,6 +19,7 @@ void    braidexit(braid_t b);
 cord_t  braidcurr(braid_t b);
 uint    braidcnt(braid_t b);
 void  **braiddata(braid_t b, uchar key);
+void    braidinfo(braid_t b);
 
 #endif
 
