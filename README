@@ -92,6 +92,10 @@ USAGE
 
             Returns the number of (non-system) scheduled cords in the braid `b`.
 
+    uint    braidsys(braid_t b);
+
+            Returns the number of scheduled system cords in the braid `b`.
+
     void  **braiddata(braid_t b, uchar key);
 
             Returns a pointer to braid-shared storage for the given key. If the

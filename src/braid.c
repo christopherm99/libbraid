@@ -30,6 +30,7 @@ struct braid {
     cord_t head;
     cord_t tail;
     uint   count;
+    uint   sys;
   } cords;
   struct {
     cord_t head;
@@ -45,13 +46,15 @@ static cord_t braidpop(braid_t b) {
   b->cords.head = c->next;
   if (b->cords.head) b->cords.head->prev = NULL;
   else b->cords.tail = NULL;
-  if (!(c->flags & CORD_SYSTEM)) b->cords.count--;
+  if (c->flags & CORD_SYSTEM) b->cords.sys--;
+  else b->cords.count--;
 
   return c;
 }
 
 static void braidappend(braid_t b, cord_t c) {
-  if (!(c->flags & CORD_SYSTEM)) b->cords.count++;
+  if (c->flags & CORD_SYSTEM) b->cords.sys++;
+  else b->cords.count++;
   c->next = NULL;
   c->prev = b->cords.tail;
   if (b->cords.tail) b->cords.tail->next = c;
@@ -187,6 +190,7 @@ void braidexit(braid_t b) {
 
 cord_t braidcurr(braid_t b) { return b->running; }
 uint braidcnt(braid_t b) { return b->cords.count; }
+uint braidsys(braid_t b) { return b->cords.sys; }
 
 void **braiddata(braid_t b, uchar key) {
   struct data *d;

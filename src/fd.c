@@ -2,6 +2,7 @@
 #include <braid/fd.h>
 
 #include <err.h>
+#include <errno.h>
 #include <poll.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,7 +52,9 @@ void fdvisor(braid_t b, usize _) {
   for (;;) {
     if (ctx->cnt) {
       int rc;
-      if ((rc = poll(ctx->pfds, ctx->cnt, braidcnt(b) ? 0 : -1)) < 0)
+      /* if we're the only cord (system or normal), then we can poll indefinitely */
+      /* FIXME: this may be false in pthread scenarios? */
+      if ((rc = poll(ctx->pfds, ctx->cnt, (braidcnt(b) + braidsys(b)) ? 0 : -1)) < 0 && errno != EINTR)
         err(EX_OSERR, "fdvisor: poll");
       if (rc == 0) braidyield(b);
       else {
