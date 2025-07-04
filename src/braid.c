@@ -9,16 +9,14 @@
 #include <string.h>
 #include <sysexits.h>
 
-typedef struct cord Cord;
-
 struct cord {
   ctx_t  ctx;
   void (*entry)(braid_t, usize);
   usize  val;
   uchar  flags;
   char  *name;
-  Cord  *next;
-  Cord  *prev;
+  cord_t next;
+  cord_t prev;
 };
 
 struct data {
@@ -27,20 +25,20 @@ struct data {
   uchar        key;
 };
 
-typedef struct {
-  ctx_t sched;
-  Cord *running;
+struct braid {
+  ctx_t  sched;
+  cord_t running;
   struct {
-    Cord *head;
-    Cord *tail;
-    uint  count;
-    uint  blocked;
+    cord_t head;
+    cord_t tail;
+    uint   count;
+    uint   blocked;
   } cords;
   struct data *data;
-} Braid;
+};
 
-static Cord *braidpop(Braid *b) {
-  Cord *c;
+static cord_t braidpop(braid_t b) {
+  cord_t c;
 
   if ((c = b->cords.head) == NULL) return NULL;
   b->cords.head = c->next;
@@ -51,7 +49,7 @@ static Cord *braidpop(Braid *b) {
   return c;
 }
 
-static void braidappend(Braid *b, Cord *c) {
+static void braidappend(braid_t b, cord_t c) {
   if (!(c->flags & CORD_SYSTEM)) b->cords.count++;
   c->next = NULL;
   c->prev = b->cords.tail;
@@ -68,24 +66,24 @@ static char *_strdup(const char *s) {
 }
 
 braid_t braidinit(void) {
-  Braid *b;
+  braid_t b;
 
-  if ((b = malloc(sizeof(Braid))) == NULL) err(EX_OSERR, "braidinit: malloc");
-  memset(b, 0, sizeof(Braid));
+  if ((b = malloc(sizeof(struct braid))) == NULL) err(EX_OSERR, "braidinit: malloc");
+  memset(b, 0, sizeof(struct braid));
 
   return b;
 }
 
 static void ripcord(usize b) {
-  ((Braid *)b)->running->entry((Braid *)b, ((Braid *)b)->running->val);
-  braidexit((Braid *)b);
+  ((braid_t)b)->running->entry((braid_t)b, ((braid_t)b)->running->val);
+  braidexit((braid_t)b);
 }
 
 void braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char *name, uchar flags, usize arg) {
-  Cord *c;
+  cord_t c;
 
-  if ((c = malloc(sizeof(Cord))) == NULL) err(EX_OSERR, "braidadd: malloc");
-  memset(c, 0, sizeof(Cord));
+  if ((c = malloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: malloc");
+  memset(c, 0, sizeof(struct cord));
   c->ctx = createctx(ripcord, stacksize, (usize)b);
   c->entry = f;
   c->name = _strdup(name);
@@ -95,9 +93,8 @@ void braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char 
   braidappend(b, c);
 }
 
-void braidstart(braid_t _b) {
-  Braid *b = (Braid *)_b;
-  Cord *c;
+void braidstart(braid_t b) {
+  cord_t c;
   struct data *d;
 
   b->sched = newctx();
@@ -120,7 +117,7 @@ void braidstart(braid_t _b) {
   free(b->sched);
   if (b->cords.count + b->cords.blocked) {
     while (c) {
-      Cord *tmp = c;
+      cord_t tmp = c;
       c = c->next;
       free(tmp->ctx);
       free(tmp->name);
@@ -137,46 +134,46 @@ void braidstart(braid_t _b) {
 }
 
 void braidyield(braid_t b) {
-  if (((Braid *)b)->running == NULL) return;
-  braidappend(b, ((Braid *)b)->running);
-  swapctx(((Braid *)b)->running->ctx, ((Braid *)b)->sched);
+  if (b->running == NULL) return;
+  braidappend(b, b->running);
+  swapctx(b->running->ctx, b->sched);
 }
 
 usize braidblock(braid_t b) {
-  ((Braid *)b)->cords.blocked++;
-  swapctx(((Braid *)b)->running->ctx, ((Braid *)b)->sched);
-  return ((Braid *)b)->running->val;
+  b->cords.blocked++;
+  swapctx(b->running->ctx, b->sched);
+  return b->running->val;
 }
 
 void braidunblock(braid_t b, cord_t c, usize val) {
-  ((Braid *)b)->cords.blocked--;
-  ((Cord *)c)->val = val;
-  braidappend((Braid *)b, (Cord *)c);
+  b->cords.blocked--;
+  c->val = val;
+  braidappend(b, c);
 #ifdef EBUG
-  printf("braidunblock: unblocking cord %s\n", ((Cord *)c)->name ? ((Cord *)c)->name : "unamed");
+  printf("braidunblock: unblocking cord %s\n", c->name ? c->name : "unamed");
 #endif
 }
 
 void braidexit(braid_t b) {
-  free(((Braid *)b)->running->ctx);
-  free(((Braid *)b)->running);
-  swapctx(dummy_ctx, ((Braid *)b)->sched);
+  free(b->running->ctx);
+  free(b->running);
+  swapctx(dummy_ctx, b->sched);
 }
 
-cord_t braidcurr(braid_t b) { return ((Braid *)b)->running; }
-uint braidcnt(braid_t *b) { return ((Braid *)b)->cords.count; }
+cord_t braidcurr(braid_t b) { return b->running; }
+uint braidcnt(braid_t b) { return b->cords.count; }
 
 void **braiddata(braid_t b, uchar key) {
   struct data *d;
 
-  for (d = ((Braid *)b)->data; d; d = d->next)
+  for (d = b->data; d; d = d->next)
     if (d->key == key) return &d->data;
 
   if ((d = malloc(sizeof(struct data))) == NULL) err(EX_OSERR, "braiddata: malloc");
   memset(d, 0, sizeof(struct data));
   d->key = key;
-  d->next = ((Braid *)b)->data;
-  ((Braid *)b)->data = d;
+  d->next = b->data;
+  b->data = d;
 
   return &d->data;
 }
