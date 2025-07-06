@@ -49,7 +49,7 @@ USAGE
             `stacksize`. The cord will be scheduled cooperatively with other
             cords in the braid. The argument `b` will be passed to `f`, along
             with `arg`. The `name` argument is nullable, and used for debuging
-            (compile with `-DEBUG`. The `flags` arguemtn sets the type of cord
+            (compile with `-DEBUG`. The `flags` arguement sets the type of cord
             that is being created:
 
               * CORD_NORMAL: a normal cord.
@@ -135,12 +135,14 @@ USAGE
 
   TCP/IP non-blocking IO is available through `braid/tcp.h`.
 
-    int     tcpdial(braid_t b, const char *host, int port);
+    int     tcpdial(braid_t b, int fd, const char *host, int port);
 
-            Connects to the specified host and port. The `host` argument shoudl
-            be specified like "127.0.0.1" or "example.com". Do not call this
-            function from a braid that does not have the `fdvisor` system cord.
-            Returns the connected socket.
+            Connects to the specified host and port. The `host` argument should
+            be specified like "127.0.0.1" or "example.com". The `fd` argument can
+            be used to specify a preexisting socket, but if negative, `tcpdial`
+            will create a new socket. Do not call this function from a braid
+            that does not have the `fdvisor` system cord. Returns the connected
+            socket.
 
     int     tcplisten(const char *host, int port);
 
@@ -164,7 +166,7 @@ USAGE
 
     ch_t    chcreate(braid_t b);
 
-            Creeates a new channel in the braid `b`.
+            Creates a new channel in the braid `b`.
 
     void    chdestroy(braid_t b, ch_t ch);
 
@@ -198,7 +200,7 @@ USAGE
     void    ckusleep(braid_t b, ulong us);
     void    ckmsleep(braid_t b, ulong ms);
     void    cksleep(braid_t b, ulong s);
-    
+
             Sleeps for the specified amount of time, yielding the current cord
             until the time has passed.
 

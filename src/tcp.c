@@ -1,5 +1,6 @@
 #include <braid.h>
 #include <braid/fd.h>
+#include <braid/tcp.h>
 
 #include <netinet/tcp.h>
 #include <err.h>
@@ -37,12 +38,14 @@ static int resolve(const char *name, uint32_t *out) {
   return 0;
 }
 
-int tcpdial(braid_t b, const char *host, int port) {
-  int fd, e;
+int tcpdial(braid_t b, int fd, const char *host, int port) {
+  int e;
   struct sockaddr_in sa = {0};
   socklen_t errlen = sizeof(e);
 
-  if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) err(EX_OSERR, "fddial: socket");
+  if (fd < 0)
+    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) err(EX_OSERR, "fddial: socket");
+
   fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK);
 
   sa.sin_family = AF_INET;

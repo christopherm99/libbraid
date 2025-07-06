@@ -3,7 +3,7 @@
 
 #include <braid.h>
 
-int tcpdial(braid_t b, const char *host, int port);
+int tcpdial(braid_t b, int fd, const char *host, int port);
 int tcplisten(const char *host, int port);
 int tcpaccept(braid_t b, int fd);
 
