@@ -88,7 +88,6 @@ braid_t braidinit(void) {
   braid_t b;
 
   if ((b = alloc(sizeof(struct braid))) == NULL) err(EX_OSERR, "braidinit: alloc");
-  memset(b, 0, sizeof(struct braid));
 
   return b;
 }
