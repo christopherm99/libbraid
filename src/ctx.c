@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <sysexits.h>
 
+#define alloc(x) calloc(1, x)
+
 #ifdef __amd64__
 struct ctx { usize rsp; usize regs[6]; usize rdi; };
 #elif defined __aarch64__
@@ -20,7 +22,7 @@ static void crash(void) { errx(EX_SOFTWARE, "bottom of stack"); }
 ctx_t newctx(void) {
   struct ctx *c;
 
-  if ((c = (struct ctx *)malloc(sizeof(struct ctx))) == NULL) err(EX_OSERR, "newctx: malloc");
+  if ((c = (struct ctx *)alloc(sizeof(struct ctx))) == NULL) err(EX_OSERR, "newctx: alloc");
 
   return c;
 }
@@ -29,8 +31,8 @@ ctx_t createctx(void (*f)(usize), usize stacksize, usize arg) {
   struct ctx *c;
   usize *p;
 
-  if ((c = (struct ctx *)malloc(sizeof(struct ctx) + stacksize)) == NULL)
-    err(EX_OSERR, "cordcreate: malloc");
+  if ((c = (struct ctx *)alloc(sizeof(struct ctx) + stacksize)) == NULL)
+    err(EX_OSERR, "cordcreate: alloc");
 
   p = (usize *)(((usize)c + sizeof(struct ctx) + stacksize - 32) & ~0xF);
 #ifdef __amd64__

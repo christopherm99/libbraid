@@ -8,7 +8,6 @@
 #include <netdb.h>
 #include <poll.h>
 #include <stdlib.h>
-#include <string.h>
 
 static int ip(const char *name, uint32_t *out) {
   unsigned char addr[4];

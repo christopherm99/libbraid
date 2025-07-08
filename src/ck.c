@@ -3,10 +3,10 @@
 
 #include <err.h>
 #include <stdlib.h>
-#include <string.h>
 #include <sysexits.h>
 #include <time.h>
 
+#define alloc(x) calloc(1, x)
 
 struct ckctx {
   struct elt {
@@ -28,8 +28,7 @@ void ckvisor(braid_t b, usize _) {
   struct ckctx *ctx;
   (void)_;
 
-  if ((ctx = *braiddata(b, BRAID_CK_KEY) = malloc(sizeof(struct ckctx))) == NULL) err(EX_OSERR, "ckvisor: malloc");
-  memset(ctx, 0, sizeof(struct ckctx));
+  if ((ctx = *braiddata(b, BRAID_CK_KEY) = alloc(sizeof(struct ckctx))) == NULL) err(EX_OSERR, "ckvisor: alloc");
 
   for (;;) {
     if (ctx->head) {
@@ -56,7 +55,7 @@ void ckwait(braid_t b, const struct timespec *ts) {
 
   while (!*ctx) braidyield(b);
 
-  if ((e = malloc(sizeof(struct elt))) == NULL) err(EX_OSERR, "ckwait: malloc");
+  if ((e = alloc(sizeof(struct elt))) == NULL) err(EX_OSERR, "ckwait: alloc");
   e->cord = braidcurr(b);
   e->ts = *ts;
   e->next = (*ctx)->head;

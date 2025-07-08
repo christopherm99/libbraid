@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sysexits.h>
 
+#define alloc(x) calloc(1, x)
+
 struct chctx {
   struct {
     struct {
@@ -30,8 +32,7 @@ struct chctx {
 static struct chctx *chctx(braid_t b) {
   struct chctx **ctx = (struct chctx **)braiddata(b, BRAID_CH_KEY);
   if (*ctx) return *ctx;
-  if ((*ctx = malloc(sizeof(struct chctx))) == NULL) err(EX_OSERR, "ensure_chctx: malloc");
-  memset(*ctx, 0, sizeof(struct chctx));
+  if ((*ctx = alloc(sizeof(struct chctx))) == NULL) err(EX_OSERR, "ensure_chctx: alloc");
   return *ctx;
 }
 
@@ -124,12 +125,12 @@ uint chsend(braid_t b, ch_t ch, usize data) {
   struct chctx *ctx = wait_ctx(b);
 
   if (ctx->chs[ch].send.tail) {
-    if ((ctx->chs[ch].send.tail->next = malloc(sizeof(struct sendelt))) == NULL)
-      err(EX_OSERR, "chsend: malloc");
+    if ((ctx->chs[ch].send.tail->next = alloc(sizeof(struct sendelt))) == NULL)
+      err(EX_OSERR, "chsend: alloc");
     ctx->chs[ch].send.tail = ctx->chs[ch].send.tail->next;
   } else {
-    if ((ctx->chs[ch].send.head = malloc(sizeof(struct sendelt))) == NULL)
-      err(EX_OSERR, "chsend: malloc");
+    if ((ctx->chs[ch].send.head = alloc(sizeof(struct sendelt))) == NULL)
+      err(EX_OSERR, "chsend: alloc");
     ctx->chs[ch].send.tail = ctx->chs[ch].send.head;
   }
   ctx->chs[ch].send.tail->cord = braidcurr(b);
@@ -142,12 +143,12 @@ usize chrecv(braid_t b, ch_t ch) {
   struct chctx *ctx = wait_ctx(b);
 
   if (ctx->chs[ch].recv.tail) {
-    if ((ctx->chs[ch].recv.tail->next = malloc(sizeof(struct recvelt))) == NULL)
-      err(EX_OSERR, "chrecv: malloc");
+    if ((ctx->chs[ch].recv.tail->next = alloc(sizeof(struct recvelt))) == NULL)
+      err(EX_OSERR, "chrecv: alloc");
     ctx->chs[ch].recv.tail = ctx->chs[ch].recv.tail->next;
   } else {
-    if ((ctx->chs[ch].recv.head = malloc(sizeof(struct recvelt))) == NULL)
-      err(EX_OSERR, "chrecv: malloc");
+    if ((ctx->chs[ch].recv.head = alloc(sizeof(struct recvelt))) == NULL)
+      err(EX_OSERR, "chrecv: alloc");
     ctx->chs[ch].recv.tail = ctx->chs[ch].recv.head;
   }
   ctx->chs[ch].recv.tail->cord = braidcurr(b);

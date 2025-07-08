@@ -7,6 +7,8 @@
 #include <string.h>
 #include <sysexits.h>
 
+#define alloc(x) calloc(1, x)
+
 struct cord {
   ctx_t  ctx;
   void (*entry)(braid_t, usize);
@@ -85,7 +87,7 @@ void braidinfo(braid_t b) {
 braid_t braidinit(void) {
   braid_t b;
 
-  if ((b = malloc(sizeof(struct braid))) == NULL) err(EX_OSERR, "braidinit: malloc");
+  if ((b = alloc(sizeof(struct braid))) == NULL) err(EX_OSERR, "braidinit: alloc");
   memset(b, 0, sizeof(struct braid));
 
   return b;
@@ -99,8 +101,7 @@ static void ripcord(usize b) {
 cord_t braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char *name, uchar flags, usize arg) {
   cord_t c;
 
-  if ((c = malloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: malloc");
-  memset(c, 0, sizeof(struct cord));
+  if ((c = alloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: alloc");
   c->ctx = createctx(ripcord, stacksize, (usize)b);
   c->entry = f;
   c->name = _strdup(name);
@@ -213,8 +214,7 @@ void **braiddata(braid_t b, uchar key) {
   for (d = b->data; d; d = d->next)
     if (d->key == key) return &d->data;
 
-  if ((d = malloc(sizeof(struct data))) == NULL) err(EX_OSERR, "braiddata: malloc");
-  memset(d, 0, sizeof(struct data));
+  if ((d = alloc(sizeof(struct data))) == NULL) err(EX_OSERR, "braiddata: alloc");
   d->key = key;
   d->next = b->data;
   b->data = d;
