@@ -15,8 +15,8 @@ static int ip(const char *name, uint32_t *out) {
   int i;
 
   for (i = 0; i < 4 && *p; i++) {
-    uchar x;
-    if ((x = strtoul(p, (char **)&p, 0)) > 255 || (*p != '.' && *p != '\0')) return -1;
+    uchar x = strtoul(p, (char **)&p, 0);
+    if (*p != '.' && *p != '\0') return -1;
     if (*p == '.') p++;
     addr[i] = x;
   }
