@@ -2,12 +2,15 @@
 #include <braid/fd.h>
 #include <braid/tcp.h>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <poll.h>
 #include <stdlib.h>
+#include <sys/socket.h>
 
 static int ip(const char *name, uint32_t *out) {
   unsigned char addr[4];
