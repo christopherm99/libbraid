@@ -36,6 +36,9 @@ struct braid {
     cord_t head;
     uint   count;
   } blocked;
+  struct {
+    cord_t head;
+  } zombies;
   struct data *data;
 };
 
@@ -116,6 +119,16 @@ void braidstart(braid_t b) {
 
   for (;;) {
     if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
+      cord_t prev, curr;
+      for (prev = NULL, curr = b->zombies.head; curr; prev = curr, curr = curr->next)
+        if (curr == c) {
+          if (prev) prev->next = curr->next;
+          else b->zombies.head = curr->next;
+          free(c->ctx);
+          free(c->name);
+          free(c);
+          continue;
+        }
       b->running = c;
 #ifdef EBUG
     printf("braidstart: running cord %s\n", c->name ? c->name : "unamed");
@@ -156,7 +169,7 @@ void braidyield(braid_t b) {
 
 usize braidblock(braid_t b) {
   b->blocked.count++;
-  b->running->next = b->blocked.head ? b->blocked.head : NULL;
+  b->running->next = b->blocked.head;
   b->blocked.head = b->running;
 #ifdef EBUG
   printf("braidblock: blocking cord %s\n", b->running->name ? b->running->name : "unamed");
@@ -212,12 +225,7 @@ void **braiddata(braid_t b, uchar key) {
 usize *cordarg(cord_t c) { return &c->val; }
 
 void cordhalt(braid_t b, cord_t c) {
-  if (b->running == c) braidexit(b);
-  if (c->prev) c->prev->next = c->next;
-  if (c->next) c->next->prev = c->prev;
-  if (b->cords.head == c) b->cords.head = c->next;
-  free(c->ctx);
-  free(c->name);
-  free(c);
+  c->next = b->zombies.head;
+  b->zombies.head = c;
 }
 
