@@ -93,7 +93,7 @@ static void ripcord(usize b) {
   braidexit((braid_t)b);
 }
 
-void braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char *name, uchar flags, usize arg) {
+cord_t braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char *name, uchar flags, usize arg) {
   cord_t c;
 
   if ((c = malloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: malloc");
@@ -105,6 +105,7 @@ void braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char 
   c->val = arg;
 
   braidappend(b, c);
+  return c;
 }
 
 void braidstart(braid_t b) {
@@ -184,6 +185,7 @@ found:
 
 void braidexit(braid_t b) {
   free(b->running->ctx);
+  free(b->running->name);
   free(b->running);
   swapctx(dummy_ctx, b->sched);
 }
@@ -205,5 +207,17 @@ void **braiddata(braid_t b, uchar key) {
   b->data = d;
 
   return &d->data;
+}
+
+usize *cordarg(cord_t c) { return &c->val; }
+
+void cordhalt(braid_t b, cord_t c) {
+  if (b->running == c) braidexit(b);
+  if (c->prev) c->prev->next = c->next;
+  if (c->next) c->next->prev = c->prev;
+  if (b->cords.head == c) b->cords.head = c->next;
+  free(c->ctx);
+  free(c->name);
+  free(c);
 }
 

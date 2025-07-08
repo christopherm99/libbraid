@@ -42,7 +42,7 @@ USAGE
 
             Creates a new, uninitialized braid.
 
-    void    braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize,
+    cord_t  braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize,
                      const char *name, uchar flags, usize arg);
 
             Adds a new cord to the braid with entry point `f` and stack size
@@ -54,6 +54,8 @@ USAGE
 
               * CORD_NORMAL: a normal cord.
               * CORD_SYSTEM: ignored when deciding the braid size.
+
+            Returns the newly created cord.
 
     void    braidstart(braid_t b);
 
@@ -109,6 +111,14 @@ USAGE
     void    braidinfo(braid_t b);
 
             Prints the state of all the cords in the braid `b` to stdout.
+
+    usize  *cordarg(cord_t c);
+
+            Returns a pointer to the arguments for the cord `c`.
+
+    void    cordhalt(braid_t b, cord_t c);
+
+            Halts the cord `c` in the braid `b`. The cord cannot be rescheduled.
 
   Non-blocking IO is available through `braid/fd.h`.
 
