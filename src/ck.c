@@ -71,7 +71,7 @@ void cknsleep(braid_t b, ulong ns) {
   ts.tv_nsec += ns;
   ts.tv_sec += ts.tv_nsec / 1000000000L;
   ts.tv_nsec %= 1000000000L;
-  
+
   ckwait(b, &ts);
 }
 

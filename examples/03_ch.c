@@ -16,7 +16,7 @@ void prime(braid_t b, ch_t c) {
   int i, p;
 
   if ((p = chrecv(b, c)) > goal) exit(0);
-  
+
   printf("%d\n", p);
   braidadd(b, prime, 65536, "prime", CORD_NORMAL, nc = chcreate(b));
 

@@ -22,7 +22,7 @@ int main(void) {
   braidadd(b, sleeper, 65536, "sleeper3", CORD_NORMAL, 250000000); // 0.25 seconds
 
   braidstart(b);
-  
+
   return 0;
 }
 
