@@ -1,7 +1,7 @@
 .text
 
-.globl _swapctx
-_swapctx:
+.globl _ctxswap
+_ctxswap:
   mov x16, sp;
   stp x16, x30, [x0];
   ldp x16, x30, [x1];

@@ -21,15 +21,15 @@ ctx_t dummy_ctx = &dummy;
 
 static void crash(void) { errx(EX_SOFTWARE, "bottom of stack"); }
 
-ctx_t newctx(void) {
+ctx_t ctxempty(void) {
   struct ctx *c;
 
-  if ((c = (struct ctx *)alloc(sizeof(struct ctx))) == NULL) err(EX_OSERR, "newctx: alloc");
+  if ((c = (struct ctx *)alloc(sizeof(struct ctx))) == NULL) err(EX_OSERR, "ctxempty: alloc");
 
   return c;
 }
 
-ctx_t createctx(void (*f)(usize), usize stacksize, usize arg) {
+ctx_t ctxcreate(void (*f)(usize), usize stacksize, usize arg) {
   ctx_t c;
   long pagesize = sysconf(_SC_PAGESIZE);
   size_t mapsize = (stacksize + pagesize) & ~(pagesize - 1);
@@ -38,10 +38,10 @@ ctx_t createctx(void (*f)(usize), usize stacksize, usize arg) {
   if (!(c = alloc(sizeof(struct ctx)))) err(EX_OSERR, "cordcreate: alloc");
 
   if ((c->stack = mmap(NULL, mapsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)) == MAP_FAILED)
-    err(EX_OSERR, "createctx: mmap");
+    err(EX_OSERR, "ctxcreate: mmap");
   c->sp = (usize)c->stack;
 
-  if (mprotect(c->stack, pagesize, PROT_NONE)) err(EX_OSERR, "createctx: mprotect");
+  if (mprotect(c->stack, pagesize, PROT_NONE)) err(EX_OSERR, "ctxcreate: mprotect");
 
   p = (usize *)(c->sp + mapsize);
 #ifdef __amd64__
@@ -60,8 +60,8 @@ ctx_t createctx(void (*f)(usize), usize stacksize, usize arg) {
   return c;
 }
 
-void delctx(ctx_t c) {
-  if (c->stack && munmap(c->stack, sizeof(c->stack))) err(EX_OSERR, "delctx: munmap");
+void ctxdel(ctx_t c) {
+  if (c->stack && munmap(c->stack, sizeof(c->stack))) err(EX_OSERR, "ctxdel: munmap");
   free(c);
 }
 

@@ -101,7 +101,7 @@ cord_t braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const cha
   cord_t c;
 
   if ((c = alloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: alloc");
-  c->ctx = createctx(ripcord, stacksize, (usize)b);
+  c->ctx = ctxcreate(ripcord, stacksize, (usize)b);
   c->entry = f;
   c->name = _strdup(name);
   c->flags = flags;
@@ -115,7 +115,7 @@ void braidstart(braid_t b) {
   cord_t c;
   struct data *d;
 
-  b->sched = newctx();
+  b->sched = ctxempty();
 
   for (;;) {
     if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
@@ -124,7 +124,7 @@ void braidstart(braid_t b) {
         if (curr == c) {
           if (prev) prev->next = curr->next;
           else b->zombies.head = curr->next;
-          delctx(c->ctx);
+          ctxdel(c->ctx);
           free(c->name);
           free(c);
           continue;
@@ -133,7 +133,7 @@ void braidstart(braid_t b) {
 #ifdef EBUG
     printf("braidstart: running cord %s\n", c->name ? c->name : "unamed");
 #endif
-      swapctx(b->sched, c->ctx);
+      ctxswap(b->sched, c->ctx);
     } else {
 #ifdef EBUG
       printf("braidstart: done (%s)\n", c ? "system cords cancelled" : "all cords done");
@@ -147,7 +147,7 @@ void braidstart(braid_t b) {
     while (c) {
       cord_t tmp = c;
       c = c->next;
-      delctx(tmp->ctx);
+      ctxdel(tmp->ctx);
       free(tmp->name);
       free(tmp);
     }
@@ -164,7 +164,7 @@ void braidstart(braid_t b) {
 void braidyield(braid_t b) {
   if (b->running == NULL) return;
   braidappend(b, b->running);
-  swapctx(b->running->ctx, b->sched);
+  ctxswap(b->running->ctx, b->sched);
 }
 
 usize braidblock(braid_t b) {
@@ -174,7 +174,7 @@ usize braidblock(braid_t b) {
 #ifdef EBUG
   printf("braidblock: blocking cord %s\n", b->running->name ? b->running->name : "unamed");
 #endif
-  swapctx(b->running->ctx, b->sched);
+  ctxswap(b->running->ctx, b->sched);
   return b->running->val;
 }
 
@@ -197,10 +197,10 @@ found:
 }
 
 void braidexit(braid_t b) {
-  delctx(b->running->ctx);
+  ctxdel(b->running->ctx);
   free(b->running->name);
   free(b->running);
-  swapctx(dummy_ctx, b->sched);
+  ctxswap(dummy_ctx, b->sched);
 }
 
 cord_t braidcurr(braid_t b) { return b->running; }

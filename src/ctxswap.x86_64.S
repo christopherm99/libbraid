@@ -1,8 +1,8 @@
 .intel_syntax noprefix
 .text
 
-.globl swapctx
-swapctx:
+.globl ctxswap
+ctxswap:
   mov [rdi], rsp;
   mov rsp, [rsi];
   mov [rdi + 0x08], rbp;

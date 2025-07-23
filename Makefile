@@ -11,13 +11,13 @@ PREFIX ?= /usr/local
 
 all: build/libbraid.a examples
 
-build/libbraid.a: $(OBJS) build/swapctx.$(MACHINE).o
+build/libbraid.a: $(OBJS) build/ctxswap.$(MACHINE).o
 	$(AR) rcs $@ $^
 
 $(OBJS): build/%.o: src/%.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-build/swapctx.$(MACHINE).o: src/swapctx.$(MACHINE).S
+build/ctxswap.$(MACHINE).o: src/ctxswap.$(MACHINE).S
 	$(AS) -c -o $@ $<
 
 examples: build/libbraid.a

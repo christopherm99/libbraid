@@ -12,15 +12,15 @@ static ctx_t x, y;
 
 void fn(usize arg) {
   printf("hello %lu\n", arg);
-  swapctx(y, x);
+  ctxswap(y, x);
 }
 
 int main(void) {
-  x = newctx();
-  y = createctx(fn, 0x1000, 1337);
+  x = ctxempty();
+  y = ctxcreate(fn, 0x1000, 1337);
 
   printf("switching to y\n");
-  swapctx(x, y);
+  ctxswap(x, y);
   printf("back to x\n");
   return 0;
 }

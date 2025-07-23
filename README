@@ -7,7 +7,7 @@ WHAT
   The goal is to provide the non-blocking IO features of libtask, while keeping
   the simplicity of libco. Additionally, libbraid should be highly portable,
   just by writing a bit of assembly for saving and restoring contexts (and some
-  glue in `createctx`).
+  glue in `ctxcreate`).
 
 TERMINOLOGY
 
@@ -21,19 +21,24 @@ USAGE
   higher-level cooperative scheduling API. The low-level API can be accessed
   through `braid/ctx.h`, which provides the following functions:
 
-    ctx_t   newctx(void);
+    ctx_t   ctxempty(void);
 
             Creates a new, empty context.
 
-    ctx_t   createctx(void (*f)(usize), usize stacksize, usize arg);
+    ctx_t   ctxcreate(void (*f)(usize), usize stacksize, usize arg);
 
             Creates a new context with entry point `f` and stack size
             `stacksize`. When switching to this context, `arg` will be passed.
 
-    void    swapctx(ctx_t *old, ctx_t new);
+    void    ctxswap(ctx_t *old, ctx_t new);
 
             Swaps to the context `new`. The current context is saved in `old`.
-            Use `newctx` to create the first `old` context.
+            Use `ctxempty` to create the first `old` context.
+
+    void    ctxdel(ctx_t c);
+
+            Cleans up the memory associated with a context (including unmapping
+            the stack if it exists).
 
   The higher-level API is available through `braid.h`, which provides the
   following functions:
@@ -56,6 +61,9 @@ USAGE
               * CORD_SYSTEM: ignored when deciding the braid size.
 
             Returns the newly created cord.
+
+            NB: check out lambda.h from https://github.com/christopherm99/ctb
+            for a solution to passing additional arguments to cord entrypoints.
 
     void    braidstart(braid_t b);
 
