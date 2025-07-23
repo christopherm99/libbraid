@@ -124,7 +124,7 @@ void braidstart(braid_t b) {
         if (curr == c) {
           if (prev) prev->next = curr->next;
           else b->zombies.head = curr->next;
-          free(c->ctx);
+          delctx(c->ctx);
           free(c->name);
           free(c);
           continue;
@@ -147,7 +147,7 @@ void braidstart(braid_t b) {
     while (c) {
       cord_t tmp = c;
       c = c->next;
-      free(tmp->ctx);
+      delctx(tmp->ctx);
       free(tmp->name);
       free(tmp);
     }
@@ -197,7 +197,7 @@ found:
 }
 
 void braidexit(braid_t b) {
-  free(b->running->ctx);
+  delctx(b->running->ctx);
   free(b->running->name);
   free(b->running);
   swapctx(dummy_ctx, b->sched);

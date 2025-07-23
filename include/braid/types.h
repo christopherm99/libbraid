@@ -7,7 +7,7 @@ typedef uintptr_t usize;
 typedef unsigned long ulong;
 typedef unsigned int uint;
 typedef unsigned char uchar;
-typedef void* ctx_t;
+typedef struct ctx* ctx_t;
 
 #endif
 

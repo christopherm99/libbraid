@@ -3,13 +3,15 @@
 #include <err.h>
 #include <stdlib.h>
 #include <sysexits.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 #define alloc(x) calloc(1, x)
 
 #ifdef __amd64__
-struct ctx { usize rsp; usize regs[6]; usize rdi; };
+struct ctx { usize rsp; usize regs[6]; usize rdi; void *stack; };
 #elif defined __aarch64__
-struct ctx { usize sp; usize x30; usize x19; usize regs[10]; double fpregs[8]; usize x0; };
+struct ctx { usize sp; usize x30; usize x19; usize regs[10]; double fpregs[8]; usize x0; void *stack; };
 #else
 #error "Unsupported architecture"
 #endif
@@ -28,13 +30,20 @@ ctx_t newctx(void) {
 }
 
 ctx_t createctx(void (*f)(usize), usize stacksize, usize arg) {
-  struct ctx *c;
+  ctx_t c;
+  long pagesize = sysconf(_SC_PAGESIZE);
+  size_t mapsize = (stacksize + pagesize) & ~(pagesize - 1);
   usize *p;
 
-  if ((c = (struct ctx *)alloc(sizeof(struct ctx) + stacksize)) == NULL)
-    err(EX_OSERR, "cordcreate: alloc");
+  if (!(c = alloc(sizeof(struct ctx)))) err(EX_OSERR, "cordcreate: alloc");
 
-  p = (usize *)(((usize)c + sizeof(struct ctx) + stacksize - 32) & ~0xF);
+  if ((c->stack = mmap(NULL, mapsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)) == MAP_FAILED)
+    err(EX_OSERR, "createctx: mmap");
+  c->sp = (usize)c->stack;
+
+  if (mprotect(c->stack, pagesize, PROT_NONE)) err(EX_OSERR, "createctx: mprotect");
+
+  p = (usize *)(c->sp + mapsize);
 #ifdef __amd64__
   *--p = (usize)crash;
   *--p = (usize)f;
@@ -49,5 +58,10 @@ ctx_t createctx(void (*f)(usize), usize stacksize, usize arg) {
   c->x0 = (usize)arg;
 #endif
   return c;
+}
+
+void delctx(ctx_t c) {
+  if (c->stack && munmap(c->stack, sizeof(c->stack))) err(EX_OSERR, "delctx: munmap");
+  free(c);
 }
 
