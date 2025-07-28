@@ -116,7 +116,7 @@ cord_t braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const cha
   return c;
 }
 
-static void segvhandler(int sig, siginfo_t *info, ucontext_t *uap, braid_t b) {
+static void segvhandler(int sig, siginfo_t *info, void *uap, braid_t b) {
   usize guardpage = (usize)ctxstack(b->running->ctx);
   if (((usize)info->si_addr >= guardpage) && ((usize)info->si_addr < guardpage + sysconf(_SC_PAGESIZE)))
     write(2, "stack overflow\n", 15);
@@ -133,7 +133,7 @@ static void segvhandler(int sig, siginfo_t *info, ucontext_t *uap, braid_t b) {
 #endif
 
 void braidstart(braid_t b) {
-  char *mem;
+  void *mem;
   void (*h1)(), (*h2)();
   stack_t ss, oss;
   struct sigaction sa = {0}, osa;
@@ -145,10 +145,13 @@ void braidstart(braid_t b) {
   /* install signal handlers */
   if ((mem = mmap(NULL, LAMBDA_SIZE(0,1,0) + LAMBDA_SIZE(0,1,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "mmap");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
   h1 = (usize (*)())mem;
-  h2 = (usize (*)())(mem + LAMBDA_SIZE(0,1,0));
-  if (!(ss.ss_sp = malloc(MINSIGSTKSZ))) err(EX_OSERR, "mmap");
-  ss.ss_size = MINSIGSTKSZ;
+  h2 = (usize (*)())((char *)mem + LAMBDA_SIZE(0,1,0));
+#pragma GCC diagnostic pop
+  if (!(ss.ss_sp = malloc(SIGSTKSZ))) err(EX_OSERR, "mmap");
+  ss.ss_size = SIGSTKSZ;
   ss.ss_flags = 0;
   if (sigaltstack(&ss, NULL)) err(EX_OSERR, "sigaltstack");
   sa.sa_flags = SA_ONSTACK | SA_SIGINFO;

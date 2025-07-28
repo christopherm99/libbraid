@@ -65,6 +65,8 @@ uintptr_t (*lambda_bind(uintptr_t (*g)(), uintptr_t (*f)(), int n, ...))();
 #include <sys/mman.h>
 #endif
 
+typedef unsigned char uchar;
+
 #ifdef __aarch64__
 #define TMP 16
 #define mov(p,d,s) (p = (char *)memcpy(p, &(uint32_t){0xAA0003E0 + ((s) << 16) + (d)}, 4) + 4)
@@ -75,12 +77,12 @@ uintptr_t (*lambda_bind(uintptr_t (*g)(), uintptr_t (*f)(), int n, ...))();
 #define u64(x) \
   (x >>  0) & 0xFF, (x >>  8) & 0xFF, (x >> 16) & 0xFF, (x >> 24) & 0xFF, \
   (x >> 32) & 0xFF, (x >> 40) & 0xFF, (x >> 48) & 0xFF, (x >> 56) & 0xFF
-#define r2i(r)      ((char []){7, 6, 2, 1, 0, 1, 0})[r]
+#define r2i(r)      ((uchar []){7, 6, 2, 1, 0, 1, 0})[r]
 #define rex(d,s)    (0x48 | ((s) > 3 && (s) != TMP) << 2 | ((d) > 3 && (s) != TMP))
 #define modrm(d,s)  (0xC0 | r2i(s) << 3 | r2i(d))
-#define mov(p,d,s)  (p = (char *)memcpy(p, (char []){rex(d,s), 0x89, modrm(d,s)}, 3) + 3)
-#define movi(p,d,i) (p = (char *)memcpy(p, (char []){rex(d,0), 0xB8 + r2i(d), u64(i)}, 10) + 10)
-#define j(p,i)      (p = (char *)memcpy(p, (char []){0x48, 0xB8, u64(i), 0xFF, 0xE0}, 12) + 12)
+#define mov(p,d,s)  (p = (char *)memcpy(p, (uchar []){rex(d,s), 0x89, modrm(d,s)}, 3) + 3)
+#define movi(p,d,i) (p = (char *)memcpy(p, (uchar []){rex(d,0), 0xB8 + r2i(d), u64(i)}, 10) + 10)
+#define j(p,i)      (p = (char *)memcpy(p, (uchar []){0x48, 0xB8, u64(i), 0xFF, 0xE0}, 12) + 12)
 #else
 #error "unsupported architecture"
 #endif
@@ -106,10 +108,13 @@ static void move_one(void **p, int n, int i, int src[static n], const int dst[st
 }
 
 uintptr_t (*lambda_bind(uintptr_t (*g)(), uintptr_t (*f)(), int n, ...))() {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
   void *p = (void *)g;
+#pragma GCC diagnostic pop
   va_list args;
-  int n_ldr = 0, n_mov = 0, msrc[MAX_ARGS] = {}, mdst[MAX_ARGS] = {}, ldst[MAX_ARGS] = {};
-  uintptr_t lsrc[MAX_ARGS] = {};
+  int n_ldr = 0, n_mov = 0, msrc[MAX_ARGS] = {0}, mdst[MAX_ARGS] = {0}, ldst[MAX_ARGS] = {0};
+  uintptr_t lsrc[MAX_ARGS] = {0};
   char status[MAX_ARGS] = { 0 };
 
   va_start(args, n);

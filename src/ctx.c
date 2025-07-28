@@ -10,9 +10,8 @@
 
 #ifdef __amd64__
 struct ctx {
-  usize rsp regs[6] rdi;
+  usize rsp, regs[6], rdi;
   void *stack;
-  usize stacksize;
 };
 #elif defined __aarch64__
 struct ctx {
