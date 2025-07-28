@@ -79,14 +79,27 @@ static char *_strdup(const char *s) {
   return d;
 }
 
+static inline void cordinfo(cord_t c, char state) {
+  unsigned int i = 3;
+  char buf[30] = {(c->flags & CORD_SYSTEM) ? 'S' : ' ', state, ' '};
+  if (c->name) {
+    for (; i < sizeof(buf) - 1 && c->name[i-3]; i++) buf[i] = c->name[i-3];
+    if (i == sizeof(buf) - 1) memcpy(&buf[i-3], "...", 3);
+  } else {
+    memcpy(&buf[3], "<unamed>", 8);
+    i += 8;
+  }
+  buf[i++] = '\n';
+  write(2, buf, i);
+}
+
 void braidinfo(braid_t b) {
   cord_t c;
 
-  printf("%c %-20s (running)\n", (b->running->flags & CORD_SYSTEM) ? 'S' : ' ', b->running->name ? b->running->name : "unamed");
-  for (c = b->cords.head; c; c = c->next)
-    printf("%c %-20s (ready)\n", (c->flags & CORD_SYSTEM) ? 'S' : ' ', c->name ? c->name : "unamed");
-  for (c = b->blocked.head; c; c = c->next)
-    printf("%c %-20s (blocked)\n", (c->flags & CORD_SYSTEM) ? 'S' : ' ', c->name ? c->name : "unamed");
+  cordinfo(b->running, 'R');
+  for (c = b->cords.head; c; c = c->next) cordinfo(c, 'r');
+  for (c = b->blocked.head; c; c = c->next) cordinfo(c, 'b');
+  for (c = b->zombies.head; c; c = c->next) cordinfo(c, 'z');
 }
 
 braid_t braidinit(void) {
@@ -97,8 +110,9 @@ braid_t braidinit(void) {
   return b;
 }
 
-static void ripcord(usize b) {
-  ((braid_t)b)->running->entry((braid_t)b, ((braid_t)b)->running->val);
+static void ripcord(usize _b) {
+  braid_t b = (braid_t)_b;
+  b->running->entry(b, b->running->val);
   braidexit((braid_t)b);
 }
 
@@ -120,6 +134,7 @@ static void segvhandler(int sig, siginfo_t *info, void *uap, braid_t b) {
   usize guardpage = (usize)ctxstack(b->running->ctx);
   if (((usize)info->si_addr >= guardpage) && ((usize)info->si_addr < guardpage + sysconf(_SC_PAGESIZE)))
     write(2, "stack overflow\n", 15);
+  braidinfo(b);
   abort();
   (void)uap, (void)sig;
 }
