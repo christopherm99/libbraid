@@ -2,10 +2,15 @@
 #include <braid/ctx.h>
 
 #include <err.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+#include <sys/mman.h>
+#include <unistd.h>
+
+#include "lambda.h"
 
 #define alloc(x) calloc(1, x)
 
@@ -111,24 +116,59 @@ cord_t braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const cha
   return c;
 }
 
+static void segvhandler(int sig, siginfo_t *info, ucontext_t *uap, braid_t b) {
+  usize guardpage = (usize)ctxstack(b->running->ctx);
+  if (((usize)info->si_addr >= guardpage) && ((usize)info->si_addr < guardpage + sysconf(_SC_PAGESIZE)))
+    write(2, "stack overflow\n", 15);
+  abort();
+  (void)uap, (void)sig;
+}
+
+#ifdef __APPLE__
+#define MMAP_PROT PROT_READ | PROT_WRITE
+#define foreachsig(var,body) { int var = SIGSEGV; { body } var = SIGBUS; { body } }
+#else
+#define MMAP_PROT PROT_READ | PROT_WRITE | PROT_EXEC
+#define foreachsig(var,body) { int var = SIGSEGV; { body } }
+#endif
+
 void braidstart(braid_t b) {
+  char *mem;
+  void (*h1)(), (*h2)();
+  stack_t ss, oss;
+  struct sigaction sa = {0}, osa;
   cord_t c;
   struct data *d;
 
   b->sched = ctxempty();
 
+  /* install signal handlers */
+  if ((mem = mmap(NULL, LAMBDA_SIZE(0,1,0) + LAMBDA_SIZE(0,1,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
+    err(EX_OSERR, "mmap");
+  h1 = (usize (*)())mem;
+  h2 = (usize (*)())(mem + LAMBDA_SIZE(0,1,0));
+  if (!(ss.ss_sp = malloc(MINSIGSTKSZ))) err(EX_OSERR, "mmap");
+  ss.ss_size = MINSIGSTKSZ;
+  ss.ss_flags = 0;
+  if (sigaltstack(&ss, NULL)) err(EX_OSERR, "sigaltstack");
+  sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
+  sa.sa_sigaction = lambda_bind(h1, segvhandler, 4, MOV(0), MOV(1), MOV(2), LDR((usize)b));
+  sigemptyset(&sa.sa_mask);
+  foreachsig(sig, if (sigaction(sig, &sa, NULL)) err(EX_OSERR, "sigaction");)
+  signal(SIGQUIT, lambda_bind(h2, braidinfo, 1, LDR((usize)b)));
+
   for (;;) {
+    cord_t prev, curr;
+    for (prev = NULL, curr = b->zombies.head; curr; prev = curr, curr = curr->next)
+      if (curr == c) {
+        if (prev) prev->next = curr->next;
+        else b->zombies.head = curr->next;
+        ctxdel(c->ctx);
+        free(c->name);
+        free(c);
+        continue;
+      }
     if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
-      cord_t prev, curr;
-      for (prev = NULL, curr = b->zombies.head; curr; prev = curr, curr = curr->next)
-        if (curr == c) {
-          if (prev) prev->next = curr->next;
-          else b->zombies.head = curr->next;
-          ctxdel(c->ctx);
-          free(c->name);
-          free(c);
-          continue;
-        }
       b->running = c;
 #ifdef EBUG
     printf("braidstart: running cord %s\n", c->name ? c->name : "unamed");
@@ -141,6 +181,25 @@ void braidstart(braid_t b) {
       break;
     }
   }
+
+  /* uninstall signal handlers */
+  if (!sigaltstack(NULL, &oss) && oss.ss_sp == ss.ss_sp) {
+    stack_t nss = {0};
+    nss.ss_flags = SS_DISABLE;
+    sigaltstack(&nss, NULL);
+  }
+  free(ss.ss_sp);
+  foreachsig(
+    sig,
+    if (!sigaction(sig, NULL, &osa) && (osa.sa_sigaction == sa.sa_sigaction)) {
+      struct sigaction nsa = {0};
+      nsa.sa_handler = SIG_DFL;
+      sigemptyset(&nsa.sa_mask);
+      sigaction(sig, &nsa, NULL);
+    }
+  )
+  if (!sigaction(SIGQUIT, NULL, &osa) && (osa.sa_handler == h2)) signal(SIGQUIT, SIG_DFL);
+  munmap(mem, LAMBDA_SIZE(0,1,0));
 
   free(b->sched);
   if (b->cords.count + b->blocked.count) {

@@ -40,6 +40,11 @@ USAGE
             Cleans up the memory associated with a context (including unmapping
             the stack if it exists).
 
+    void   *ctxstack(ctx_t c);
+
+            Returns a pointer to the context's stack. It is assumed that stacks
+            grow downward, so this will be a pointer to the guard page.
+
   The higher-level API is available through `braid.h`, which provides the
   following functions:
 

@@ -14,7 +14,7 @@ all: $(PROGS)
 $(OBJS): %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(PROGS): %: %.o
+$(PROGS): %: %.o ../build/libbraid.a
 	$(CC) $< $(LDFLAGS) -o $@
 
 clean:

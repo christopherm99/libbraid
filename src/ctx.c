@@ -9,9 +9,18 @@
 #define alloc(x) calloc(1, x)
 
 #ifdef __amd64__
-struct ctx { usize rsp; usize regs[6]; usize rdi; void *stack; };
+struct ctx {
+  usize rsp regs[6] rdi;
+  void *stack;
+  usize stacksize;
+};
 #elif defined __aarch64__
-struct ctx { usize sp; usize x30; usize x19; usize regs[10]; double fpregs[8]; usize x0; void *stack; };
+struct ctx {
+  usize sp, x30, x19, regs[10];
+  double fpregs[8];
+  usize x0;
+  void *stack;
+};
 #else
 #error "Unsupported architecture"
 #endif
@@ -32,18 +41,18 @@ ctx_t ctxempty(void) {
 ctx_t ctxcreate(void (*f)(usize), usize stacksize, usize arg) {
   ctx_t c;
   long pagesize = sysconf(_SC_PAGESIZE);
-  size_t mapsize = (stacksize + pagesize) & ~(pagesize - 1);
+  size_t mapsize = ((stacksize + pagesize - 1) & ~(pagesize - 1)) + pagesize;
   usize *p;
 
   if (!(c = alloc(sizeof(struct ctx)))) err(EX_OSERR, "cordcreate: alloc");
 
   if ((c->stack = mmap(NULL, mapsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "ctxcreate: mmap");
-  c->sp = (usize)c->stack;
 
+  /* TODO: don't assume the stack grows down */
   if (mprotect(c->stack, pagesize, PROT_NONE)) err(EX_OSERR, "ctxcreate: mprotect");
 
-  p = (usize *)(c->sp + mapsize);
+  p = (usize *)((usize)c->stack + mapsize);
 #ifdef __amd64__
   *--p = (usize)crash;
   *--p = (usize)f;
@@ -64,4 +73,6 @@ void ctxdel(ctx_t c) {
   if (c->stack && munmap(c->stack, sizeof(c->stack))) err(EX_OSERR, "ctxdel: munmap");
   free(c);
 }
+
+void *ctxstack(ctx_t c) { return c->stack; }
 
