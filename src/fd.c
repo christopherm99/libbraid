@@ -14,9 +14,10 @@
 #define POLLIMPLICIT POLLERR | POLLHUP | POLLNVAL
 
 struct fdctx {
-  cord_t *cords;
+  cord_t cord, *cords;
   struct pollfd *pfds;
   uint cnt, cap;
+  char is_blocked;
 };
 
 static void blocked_append(struct fdctx *ctx, cord_t c, struct pollfd *pfd) {
@@ -49,6 +50,7 @@ void fdvisor(braid_t b, usize _) {
 
   /* FIXME: this is never freed? */
   if ((ctx = *braiddata(b, BRAID_FD_KEY) = alloc(sizeof(struct fdctx))) == NULL) err(EX_OSERR, "fdvisor: alloc");
+  ctx->cord = braidcurr(b);
 
   for (;;) {
     if (ctx->cnt) {
@@ -67,8 +69,8 @@ void fdvisor(braid_t b, usize _) {
           }
         }
       }
-    }
-    braidyield(b);
+      braidyield(b);
+    } else { ctx->is_blocked = 1; braidblock(b); }
   }
 }
 
@@ -82,6 +84,10 @@ short fdpoll(braid_t b, int fd, short events) {
   p.fd = fd;
   p.events = events;
   blocked_append(*ctx, braidcurr(b), &p);
+  if ((*ctx)->is_blocked) {
+    braidunblock(b, (*ctx)->cord, 0);
+    (*ctx)->is_blocked = 0;
+  }
 
   return (short)braidblock(b);
 }
