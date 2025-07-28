@@ -10,6 +10,7 @@
 #define alloc(x) calloc(1, x)
 
 struct chctx {
+  cord_t cord;
   struct {
     struct {
       struct sendelt {
@@ -27,12 +28,13 @@ struct chctx {
     uchar reserved;
   } *chs;
   uint max, cap;
+  char is_blocked;
 };
 
 static struct chctx *chctx(braid_t b) {
   struct chctx **ctx = (struct chctx **)braiddata(b, BRAID_CH_KEY);
   if (*ctx) return *ctx;
-  if ((*ctx = alloc(sizeof(struct chctx))) == NULL) err(EX_OSERR, "ensure_chctx: alloc");
+  if ((*ctx = alloc(sizeof(struct chctx))) == NULL) err(EX_OSERR, "chctx: alloc");
   return *ctx;
 }
 
@@ -55,7 +57,7 @@ static ch_t ch_append(struct chctx *ctx) {
 
 void chvisor(braid_t b, usize _) {
   struct chctx *ctx = chctx(b);
-  (void)_;
+  ctx->cord = braidcurr(b);
 
   for (;;) {
     if (ctx->max) {
@@ -76,8 +78,10 @@ void chvisor(braid_t b, usize _) {
         }
       }
     }
-    braidyield(b);
+    ctx->is_blocked = 1;
+    braidblock(b);
   }
+  (void)_;
 }
 
 ch_t chcreate(braid_t b) {
@@ -135,6 +139,10 @@ uint chsend(braid_t b, ch_t ch, usize data) {
   }
   ctx->chs[ch].send.tail->cord = braidcurr(b);
   ctx->chs[ch].send.tail->data = data;
+  if (ctx->is_blocked) {
+    braidunblock(b, ctx->cord, 0);
+    ctx->is_blocked = 0;
+  }
 
   return (int)braidblock(b);
 }
@@ -152,6 +160,10 @@ usize chrecv(braid_t b, ch_t ch) {
     ctx->chs[ch].recv.tail = ctx->chs[ch].recv.head;
   }
   ctx->chs[ch].recv.tail->cord = braidcurr(b);
+  if (ctx->is_blocked) {
+    braidunblock(b, ctx->cord, 0);
+    ctx->is_blocked = 0;
+  }
 
   return braidblock(b);
 }
