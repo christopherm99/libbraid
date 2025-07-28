@@ -9,11 +9,13 @@
 #define alloc(x) calloc(1, x)
 
 struct ckctx {
+  cord_t cord;
   struct elt {
     cord_t          cord;
     struct timespec ts;
     struct elt     *next;
   } *head;
+  char is_blocked;
 };
 
 static int tscmp(struct timespec a, struct timespec b) {
@@ -29,6 +31,7 @@ void ckvisor(braid_t b, usize _) {
   (void)_;
 
   if ((ctx = *braiddata(b, BRAID_CK_KEY) = alloc(sizeof(struct ckctx))) == NULL) err(EX_OSERR, "ckvisor: alloc");
+  ctx->cord = braidcurr(b);
 
   for (;;) {
     if (ctx->head) {
@@ -44,8 +47,8 @@ void ckvisor(braid_t b, usize _) {
           free(e);
         } else prev = e;
       }
-    }
-    braidyield(b);
+      braidyield(b);
+    } else { ctx->is_blocked = 1; braidblock(b); }
   }
 }
 
@@ -60,6 +63,10 @@ void ckwait(braid_t b, const struct timespec *ts) {
   e->ts = *ts;
   e->next = (*ctx)->head;
   (*ctx)->head = e;
+  if ((*ctx)->is_blocked) {
+    braidunblock(b, (*ctx)->cord, 0);
+    (*ctx)->is_blocked = 0;
+  }
 
   braidblock(b);
 }
