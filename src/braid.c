@@ -176,16 +176,17 @@ void braidstart(braid_t b) {
   signal(SIGQUIT, lambda_bind(h2, braidinfo, 1, LDR((usize)b)));
 
   for (;;) {
-    cord_t prev, curr;
-    for (prev = NULL, curr = b->zombies.head; curr; prev = curr, curr = curr->next)
-      if (curr == c) {
-        if (prev) prev->next = curr->next;
-        else b->zombies.head = curr->next;
-        ctxdel(c->ctx);
-        free(c->name);
-        free(c);
-        continue;
-      }
+    c = b->zombies.head;
+    while (c) {
+      cord_t next = c->next;
+      if (b->cords.head == c) b->cords.head = c->next;
+      if (b->cords.tail == c) b->cords.tail = c->prev;
+      if (b->blocked.head == c) b->blocked.head = c->next;
+      ctxdel(c->ctx);
+      free(c->name);
+      free(c);
+      c = next;
+    }
     if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
       b->running = c;
 #ifdef EBUG
