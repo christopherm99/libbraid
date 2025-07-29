@@ -243,7 +243,7 @@ usize braidblock(braid_t b) {
   return b->running->val;
 }
 
-void braidunblock(braid_t b, cord_t c, usize val) {
+int braidunblock(braid_t b, cord_t c, usize val) {
   cord_t curr;
   b->blocked.count--;
   for (curr = b->blocked.head; curr; curr = curr->next)
@@ -257,13 +257,14 @@ void braidunblock(braid_t b, cord_t c, usize val) {
       }
       goto found;
     }
-  errx(EX_SOFTWARE, "braidunblock: cord (%s) not found in blocked list", c->name ? c->name : "unamed");
+  return -1;
 found:
   c->val = val;
   braidappend(b, c);
 #ifdef EBUG
   printf("braidunblock: unblocking cord %s\n", c->name ? c->name : "unamed");
 #endif
+  return 0;
 }
 
 void braidexit(braid_t b) {

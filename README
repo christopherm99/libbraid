@@ -86,12 +86,13 @@ USAGE
             The return value is determined by the how the cord was added back
             to the braid (see `braiunblock`).
 
-    void    braidunblock(braid_t b, cord_t c, usize val);
+    int     braidunblock(braid_t b, cord_t c, usize val);
 
             Adds an existing cord `c` to the braid `b`. This function is mostly
             used for plumbing blocking operations (see `braidblock`). If this
             cord was stopped by `braidblock`, `val` is the value that will be
-            returned from the `braidblock` call.
+            returned from the `braidblock` call. If the cord is not found in the
+            blocked list, returns -1, otherwise returns 0.
 
     void    braidexit(braid_t b);
 
