@@ -43,9 +43,6 @@ struct braid {
     cord_t head;
     uint   count;
   } blocked;
-  struct {
-    cord_t head;
-  } zombies;
   struct data *data;
 };
 
@@ -99,7 +96,6 @@ void braidinfo(braid_t b) {
   cordinfo(b->running, 'R');
   for (c = b->cords.head; c; c = c->next) cordinfo(c, 'r');
   for (c = b->blocked.head; c; c = c->next) cordinfo(c, 'b');
-  for (c = b->zombies.head; c; c = c->next) cordinfo(c, 'z');
 }
 
 braid_t braidinit(void) {
@@ -176,17 +172,6 @@ void braidstart(braid_t b) {
   signal(SIGQUIT, lambda_bind(h2, braidinfo, 1, LDR((usize)b)));
 
   for (;;) {
-    c = b->zombies.head;
-    while (c) {
-      cord_t next = c->next;
-      if (b->cords.head == c) b->cords.head = c->next;
-      if (b->cords.tail == c) b->cords.tail = c->prev;
-      if (b->blocked.head == c) b->blocked.head = c->next;
-      ctxdel(c->ctx);
-      free(c->name);
-      free(c);
-      c = next;
-    }
     if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
       b->running = c;
 #ifdef EBUG
@@ -247,7 +232,9 @@ void braidyield(braid_t b) {
 
 usize braidblock(braid_t b) {
   b->blocked.count++;
+  if (b->blocked.head) b->blocked.head->prev = b->running;
   b->running->next = b->blocked.head;
+  b->running->prev = NULL;
   b->blocked.head = b->running;
 #ifdef EBUG
   printf("braidblock: blocking cord %s\n", b->running->name ? b->running->name : "unamed");
@@ -257,12 +244,17 @@ usize braidblock(braid_t b) {
 }
 
 void braidunblock(braid_t b, cord_t c, usize val) {
-  cord_t prev, curr;
+  cord_t curr;
   b->blocked.count--;
-  for (prev = NULL, curr = b->blocked.head; curr; prev = curr, curr = curr->next)
+  for (curr = b->blocked.head; curr; curr = curr->next)
     if (curr == c) {
-      if (prev) prev->next = curr->next;
-      else b->blocked.head = curr->next;
+      if (curr->prev) {
+        curr->prev->next = curr->next;
+        if (curr->next) curr->next->prev = curr->prev;
+      } else {
+        b->blocked.head = curr->next;
+        if (curr->next) curr->next->prev = NULL;
+      }
       goto found;
     }
   errx(EX_SOFTWARE, "braidunblock: cord (%s) not found in blocked list", c->name ? c->name : "unamed");
@@ -302,7 +294,13 @@ void **braiddata(braid_t b, uchar key) {
 usize *cordarg(cord_t c) { return &c->val; }
 
 void cordhalt(braid_t b, cord_t c) {
-  c->next = b->zombies.head;
-  b->zombies.head = c;
+  if (c->prev) c->prev->next = c->next;
+  if (c->next) c->next->prev = c->prev;
+  if (b->cords.head == c) b->cords.head = c->next;
+  if (b->cords.tail == c) b->cords.tail = c->prev;
+  if (b->blocked.head == c) b->blocked.head = c->next;
+  ctxdel(c->ctx);
+  free(c->name);
+  free(c);
 }
 
