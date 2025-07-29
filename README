@@ -58,9 +58,8 @@ USAGE
             Adds a new cord to the braid with entry point `f` and stack size
             `stacksize`. The cord will be scheduled cooperatively with other
             cords in the braid. The argument `b` will be passed to `f`, along
-            with `arg`. The `name` argument is nullable, and used for debuging
-            (compile with `-DEBUG`. The `flags` arguement sets the type of cord
-            that is being created:
+            with `arg`. The `name` argument is nullable. The `flags` arguement
+            sets the type of cord that is being created:
 
               * CORD_NORMAL: a normal cord.
               * CORD_SYSTEM: ignored when deciding the braid size.

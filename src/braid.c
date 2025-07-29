@@ -174,14 +174,8 @@ void braidstart(braid_t b) {
   for (;;) {
     if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
       b->running = c;
-#ifdef EBUG
-    printf("braidstart: running cord %s\n", c->name ? c->name : "unamed");
-#endif
       ctxswap(b->sched, c->ctx);
     } else {
-#ifdef EBUG
-      printf("braidstart: done (%s)\n", c ? "system cords cancelled" : "all cords done");
-#endif
       break;
     }
   }
@@ -236,9 +230,6 @@ usize braidblock(braid_t b) {
   b->running->next = b->blocked.head;
   b->running->prev = NULL;
   b->blocked.head = b->running;
-#ifdef EBUG
-  printf("braidblock: blocking cord %s\n", b->running->name ? b->running->name : "unamed");
-#endif
   ctxswap(b->running->ctx, b->sched);
   return b->running->val;
 }
@@ -261,9 +252,6 @@ int braidunblock(braid_t b, cord_t c, usize val) {
 found:
   c->val = val;
   braidappend(b, c);
-#ifdef EBUG
-  printf("braidunblock: unblocking cord %s\n", c->name ? c->name : "unamed");
-#endif
   return 0;
 }
 
