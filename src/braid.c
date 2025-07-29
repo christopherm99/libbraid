@@ -69,6 +69,12 @@ static void braidappend(braid_t b, cord_t c) {
   b->cords.tail = c;
 }
 
+static inline void corddel(cord_t c) {
+  ctxdel(c->ctx);
+  free(c->name);
+  free(c);
+}
+
 static char *_strdup(const char *s) {
   char *d;
   if (s == NULL) return NULL;
@@ -109,7 +115,7 @@ braid_t braidinit(void) {
 static void ripcord(usize _b) {
   braid_t b = (braid_t)_b;
   b->running->entry(b, b->running->val);
-  braidexit((braid_t)b);
+  braidexit(b);
 }
 
 cord_t braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char *name, uchar flags, usize arg) {
@@ -204,9 +210,7 @@ void braidstart(braid_t b) {
     while (c) {
       cord_t tmp = c;
       c = c->next;
-      ctxdel(tmp->ctx);
-      free(tmp->name);
-      free(tmp);
+      corddel(tmp);
     }
   }
 
@@ -256,9 +260,7 @@ found:
 }
 
 void braidexit(braid_t b) {
-  ctxdel(b->running->ctx);
-  free(b->running->name);
-  free(b->running);
+  corddel(b->running);
   ctxswap(dummy_ctx, b->sched);
 }
 
@@ -288,8 +290,6 @@ void cordhalt(braid_t b, cord_t c) {
   if (b->cords.head == c) b->cords.head = c->next;
   if (b->cords.tail == c) b->cords.tail = c->prev;
   if (b->blocked.head == c) b->blocked.head = c->next;
-  ctxdel(c->ctx);
-  free(c->name);
-  free(c);
+  corddel(c);
 }
 
