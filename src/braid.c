@@ -43,6 +43,7 @@ struct braid {
     cord_t head;
     uint   count;
   } blocked;
+  cord_t zombies;
   struct data *data;
 };
 
@@ -178,6 +179,10 @@ void braidstart(braid_t b) {
   signal(SIGQUIT, lambda_bind(h2, braidinfo, 1, LDR((usize)b)));
 
   for (;;) {
+    while ((c = b->zombies)) {
+      b->zombies = c->next;
+      corddel(c);
+    }
     if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
       b->running = c;
       ctxswap(b->sched, c->ctx);
@@ -260,7 +265,8 @@ found:
 }
 
 void braidexit(braid_t b) {
-  corddel(b->running);
+  b->running->next = b->zombies;
+  b->zombies = b->running;
   ctxswap(dummy_ctx, b->sched);
 }
 
@@ -290,6 +296,7 @@ void cordhalt(braid_t b, cord_t c) {
   if (b->cords.head == c) b->cords.head = c->next;
   if (b->cords.tail == c) b->cords.tail = c->prev;
   if (b->blocked.head == c) b->blocked.head = c->next;
-  corddel(c);
+  c->next = b->zombies;
+  b->zombies = c;
 }
 

@@ -12,6 +12,7 @@
 struct ctx {
   usize rsp, regs[6], rdi;
   void *stack;
+  usize mapsize;
 };
 #elif defined __aarch64__
 struct ctx {
@@ -19,6 +20,7 @@ struct ctx {
   double fpregs[8];
   usize x0;
   void *stack;
+  usize mapsize;
 };
 #else
 #error "Unsupported architecture"
@@ -45,7 +47,7 @@ ctx_t ctxcreate(void (*f)(usize), usize stacksize, usize arg) {
 
   if (!(c = alloc(sizeof(struct ctx)))) err(EX_OSERR, "cordcreate: alloc");
 
-  if ((c->stack = mmap(NULL, mapsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)) == MAP_FAILED)
+  if ((c->stack = mmap(NULL, c->mapsize = mapsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "ctxcreate: mmap");
 
   /* TODO: don't assume the stack grows down */
@@ -69,8 +71,9 @@ ctx_t ctxcreate(void (*f)(usize), usize stacksize, usize arg) {
 }
 
 void ctxdel(ctx_t c) {
-  if (c->stack && munmap(c->stack, sizeof(c->stack))) err(EX_OSERR, "ctxdel: munmap");
-  free(c);
+  void *tmp = c;
+  if (c->stack && munmap(c->stack, c->mapsize)) err(EX_OSERR, "ctxdel: munmap");
+  free(tmp);
 }
 
 void *ctxstack(ctx_t c) { return c->stack; }
