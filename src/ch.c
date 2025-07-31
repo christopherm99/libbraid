@@ -65,17 +65,16 @@ void chvisor(braid_t b, usize _) {
       uint i;
       for (i = 0; i < ctx->max; i++) {
         while (ctx->chs[i].send.head && ctx->chs[i].recv.head) {
-          cord_t send = ctx->chs[i].send.head->cord;
-          cord_t recv = ctx->chs[i].recv.head->cord;
-          usize data = ctx->chs[i].send.head->data;
+          struct sendelt *send = ctx->chs[i].send.head;
+          struct recvelt *recv = ctx->chs[i].recv.head;
 
-          if ((ctx->chs[i].send.head = ctx->chs[i].send.head->next) == NULL)
-            ctx->chs[i].send.tail = NULL;
-          if ((ctx->chs[i].recv.head = ctx->chs[i].recv.head->next) == NULL)
-            ctx->chs[i].recv.tail = NULL;
+          if ((ctx->chs[i].send.head = send->next) == NULL) ctx->chs[i].send.tail = NULL;
+          if ((ctx->chs[i].recv.head = recv->next) == NULL) ctx->chs[i].recv.tail = NULL;
 
-          braidunblock(b, send, 0);
-          braidunblock(b, recv, data);
+          braidunblock(b, send->cord, 0);
+          braidunblock(b, recv->cord, send->data);
+          free(send);
+          free(recv);
         }
       }
     }
