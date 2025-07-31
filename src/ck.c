@@ -35,17 +35,22 @@ void ckvisor(braid_t b, usize _) {
 
   for (;;) {
     if (ctx->head) {
-      struct elt *e, *prev = NULL;
+      struct elt *e = ctx->head, *prev = NULL;
       struct timespec now;
 
       clock_gettime(CLOCK_REALTIME, &now);
-      for (e = ctx->head; e; e = e->next) {
+      while (e) {
         if (tscmp(e->ts, now) <= 0) {
+          struct elt *next = e->next;
           braidunblock(b, e->cord, 0);
           if (prev) prev->next = e->next;
           else ctx->head = e->next;
           free(e);
-        } else prev = e;
+          e = next;
+        } else { 
+          prev = e;
+          e = e->next;
+        }
       }
       braidyield(b);
     } else { ctx->is_blocked = 1; braidblock(b); }
