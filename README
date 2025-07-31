@@ -133,6 +133,14 @@ USAGE
 
             Halts the cord `c` in the braid `b`. The cord cannot be rescheduled.
 
+    void   *cordmalloc(braid_t b, size_t sz);
+    void   *cordzalloc(braid_t b, size_t sz);
+    void   *braidmalloc(braid_t b, size_t sz);
+    void   *braidzalloc(braid_t b, size_t sz);
+
+            Arena allocators, scoped to currently running cord or overall braid
+            lifetimes. Data is NOT FREED until the cord's/braid's lifetime ends.
+
   Non-blocking IO is available through `braid/fd.h`.
 
     void    fdvisor(braid_t b, usize _);

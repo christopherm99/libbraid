@@ -9,8 +9,6 @@
 #include <sysexits.h>
 #include <unistd.h>
 
-#define alloc(x) calloc(1, x)
-
 #define POLLIMPLICIT POLLERR | POLLHUP | POLLNVAL
 
 struct fdctx {
@@ -48,8 +46,7 @@ void fdvisor(braid_t b, usize _) {
   struct fdctx *ctx;
   (void)_;
 
-  /* FIXME: this is never freed? */
-  if ((ctx = *braiddata(b, BRAID_FD_KEY) = alloc(sizeof(struct fdctx))) == NULL) err(EX_OSERR, "fdvisor: alloc");
+  if ((ctx = *braiddata(b, BRAID_FD_KEY) = cordzalloc(b, sizeof(struct fdctx))) == NULL) err(EX_OSERR, "fdvisor: alloc");
   ctx->cord = braidcurr(b);
 
   for (;;) {

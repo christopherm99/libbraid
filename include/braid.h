@@ -2,6 +2,7 @@
 #define _BRAID_H
 
 #include <braid/types.h>
+#include <stddef.h>
 
 #define CORD_NORMAL 0x00
 #define CORD_SYSTEM 0x01
@@ -24,6 +25,11 @@ void    braidinfo(braid_t b);
 
 usize  *cordarg(cord_t c);
 void    cordhalt(braid_t b, cord_t c);
+
+void   *cordmalloc(braid_t b, size_t sz);
+void   *cordzalloc(braid_t b, size_t sz);
+void   *braidmalloc(braid_t b, size_t sz);
+void   *braidzalloc(braid_t b, size_t sz);
 
 #endif
 

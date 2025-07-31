@@ -30,7 +30,7 @@ void ckvisor(braid_t b, usize _) {
   struct ckctx *ctx;
   (void)_;
 
-  if ((ctx = *braiddata(b, BRAID_CK_KEY) = alloc(sizeof(struct ckctx))) == NULL) err(EX_OSERR, "ckvisor: alloc");
+  if ((ctx = *braiddata(b, BRAID_CK_KEY) = cordzalloc(b, sizeof(struct ckctx))) == NULL) err(EX_OSERR, "ckvisor: alloc");
   ctx->cord = braidcurr(b);
 
   for (;;) {

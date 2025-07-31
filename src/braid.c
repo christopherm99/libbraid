@@ -10,18 +10,19 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "arena.h"
 #include "lambda.h"
 
 #define alloc(x) calloc(1, x)
 
 struct cord {
-  ctx_t  ctx;
-  void (*entry)(braid_t, usize);
-  usize  val;
-  uchar  flags;
-  char  *name;
-  cord_t next;
-  cord_t prev;
+  cord_t  next, prev;
+  ctx_t   ctx;
+  void  (*entry)(braid_t, usize);
+  usize   val;
+  char   *name;
+  arena_t arena;
+  uchar   flags;
 };
 
 struct data {
@@ -44,6 +45,7 @@ struct braid {
     uint   count;
   } blocked;
   cord_t zombies;
+  arena_t arena;
   struct data *data;
 };
 
@@ -72,15 +74,8 @@ static void braidappend(braid_t b, cord_t c) {
 
 static inline void corddel(cord_t c) {
   ctxdel(c->ctx);
-  free(c->name);
+  arena_destroy(c->arena);
   free(c);
-}
-
-static char *_strdup(const char *s) {
-  char *d;
-  if (s == NULL) return NULL;
-  if ((d = malloc(strlen(s) + 1))) strcpy(d, s);
-  return d;
 }
 
 static inline void cordinfo(cord_t c, char state) {
@@ -109,6 +104,7 @@ braid_t braidinit(void) {
   braid_t b;
 
   if ((b = alloc(sizeof(struct braid))) == NULL) err(EX_OSERR, "braidinit: alloc");
+  b->arena = arena_create();
 
   return b;
 }
@@ -125,9 +121,10 @@ cord_t braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const cha
   if ((c = alloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: alloc");
   c->ctx = ctxcreate(ripcord, stacksize, (usize)b);
   c->entry = f;
-  c->name = _strdup(name);
   c->flags = flags;
   c->val = arg;
+  c->arena = arena_create();
+  c->name = arena_strdup(c->arena, name);
 
   braidappend(b, c);
   return c;
@@ -156,7 +153,6 @@ void braidstart(braid_t b) {
   stack_t ss, oss;
   struct sigaction sa = {0}, osa;
   cord_t c;
-  struct data *d;
 
   b->sched = ctxempty();
 
@@ -168,7 +164,7 @@ void braidstart(braid_t b) {
   h1 = (usize (*)())mem;
   h2 = (usize (*)())((char *)mem + LAMBDA_SIZE(0,1,0));
 #pragma GCC diagnostic pop
-  if (!(ss.ss_sp = malloc(SIGSTKSZ))) err(EX_OSERR, "mmap");
+  if (!(ss.ss_sp = braidmalloc(b, SIGSTKSZ))) err(EX_OSERR, "alloc sigstack");
   ss.ss_size = SIGSTKSZ;
   ss.ss_flags = 0;
   if (sigaltstack(&ss, NULL)) err(EX_OSERR, "sigaltstack");
@@ -197,7 +193,6 @@ void braidstart(braid_t b) {
     nss.ss_flags = SS_DISABLE;
     sigaltstack(&nss, NULL);
   }
-  free(ss.ss_sp);
   foreachsig(
     sig,
     if (!sigaction(sig, NULL, &osa) && (osa.sa_sigaction == sa.sa_sigaction)) {
@@ -210,21 +205,18 @@ void braidstart(braid_t b) {
   if (!sigaction(SIGQUIT, NULL, &osa) && (osa.sa_handler == h2)) signal(SIGQUIT, SIG_DFL);
   munmap(mem, LAMBDA_SIZE(0,1,0));
 
-  free(b->sched);
-  if (b->cords.count + b->blocked.count) {
-    while (c) {
-      cord_t tmp = c;
-      c = c->next;
-      corddel(tmp);
-    }
+  while ((c = b->cords.head)) {
+    b->cords.head = c->next;
+    corddel(c);
   }
 
-  d = b->data;
-  while (d) {
-    struct data *tmp = d;
-    d = d->next;
-    free(tmp);
+  while ((c = b->blocked.head)) {
+    b->blocked.head = c->next;
+    corddel(c);
   }
+
+  arena_destroy(b->arena);
+  ctxdel(b->sched);
 }
 
 void braidyield(braid_t b) {
@@ -280,7 +272,7 @@ void **braiddata(braid_t b, uchar key) {
   for (d = b->data; d; d = d->next)
     if (d->key == key) return &d->data;
 
-  if ((d = alloc(sizeof(struct data))) == NULL) err(EX_OSERR, "braiddata: alloc");
+  if ((d = braidzalloc(b, sizeof(struct data))) == NULL) err(EX_OSERR, "braiddata: alloc");
   d->key = key;
   d->next = b->data;
   b->data = d;
@@ -299,4 +291,9 @@ void cordhalt(braid_t b, cord_t c) {
   c->next = b->zombies;
   b->zombies = c;
 }
+
+void *cordmalloc(braid_t b, size_t sz) { return arena_malloc(b->running->arena, sz); }
+void *cordzalloc(braid_t b, size_t sz) { return arena_zalloc(b->running->arena, sz); }
+void *braidmalloc(braid_t b, size_t sz) { return arena_malloc(b->arena, sz); }
+void *braidzalloc(braid_t b, size_t sz) { return arena_zalloc(b->arena, sz); }
 

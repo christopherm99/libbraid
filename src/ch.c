@@ -34,7 +34,8 @@ struct chctx {
 static struct chctx *chctx(braid_t b) {
   struct chctx **ctx = (struct chctx **)braiddata(b, BRAID_CH_KEY);
   if (*ctx) return *ctx;
-  if ((*ctx = alloc(sizeof(struct chctx))) == NULL) err(EX_OSERR, "chctx: alloc");
+  // FIXME: this should not be in the braid's lifetime.
+  if ((*ctx = braidzalloc(b, sizeof(struct chctx))) == NULL) err(EX_OSERR, "chctx: alloc");
   return *ctx;
 }
 
