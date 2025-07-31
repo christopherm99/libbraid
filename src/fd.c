@@ -21,8 +21,8 @@ struct fdctx {
 static void blocked_append(struct fdctx *ctx, cord_t c, struct pollfd *pfd) {
   if (ctx->cnt + 1 > ctx->cap) {
     ctx->cap = (ctx->cap == 0) ? 4 : ctx->cap * 2;
-    if ((ctx->cords = realloc(ctx->cords, ctx->cap * sizeof(cord_t))) == NULL ||
-        (ctx->pfds = realloc(ctx->pfds, ctx->cap * sizeof(struct pollfd))) == NULL)
+    if ((ctx->cords = cordrealloc(ctx->cord, ctx->cords, ctx->cap * sizeof(cord_t))) == NULL ||
+        (ctx->pfds = cordrealloc(ctx->cord, ctx->pfds, ctx->cap * sizeof(struct pollfd))) == NULL)
       err(EX_OSERR, "blocked_append: realloc");
   }
   ctx->cords[ctx->cnt] = c;
@@ -46,7 +46,7 @@ void fdvisor(braid_t b, usize _) {
   struct fdctx *ctx;
   (void)_;
 
-  if ((ctx = *braiddata(b, BRAID_FD_KEY) = cordzalloc(b, sizeof(struct fdctx))) == NULL) err(EX_OSERR, "fdvisor: alloc");
+  if ((ctx = *braiddata(b, BRAID_FD_KEY) = cordzalloc(braidcurr(b), sizeof(struct fdctx))) == NULL) err(EX_OSERR, "fdvisor: alloc");
   ctx->cord = braidcurr(b);
 
   for (;;) {

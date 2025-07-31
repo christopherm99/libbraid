@@ -293,8 +293,12 @@ void cordhalt(braid_t b, cord_t c) {
   b->zombies = c;
 }
 
-void *cordmalloc(braid_t b, size_t sz) { return arena_malloc(b->running->arena, sz); }
-void *cordzalloc(braid_t b, size_t sz) { return arena_zalloc(b->running->arena, sz); }
+void *cordmalloc(cord_t c, size_t sz) { return arena_malloc(c->arena, sz); }
+void *cordzalloc(cord_t c, size_t sz) { return arena_zalloc(c->arena, sz); }
+void *cordrealloc(cord_t c, void *p, size_t sz) { return arena_realloc(c->arena, p, sz); }
+void  cordfree(cord_t c, void *p) { arena_free(c->arena, p); }
 void *braidmalloc(braid_t b, size_t sz) { return arena_malloc(b->arena, sz); }
 void *braidzalloc(braid_t b, size_t sz) { return arena_zalloc(b->arena, sz); }
+void *braidrealloc(braid_t b, void *p, size_t sz) { return arena_realloc(b->arena, p, sz); }
+void  braidfree(braid_t b, void *p) { arena_free(b->arena, p); }
 

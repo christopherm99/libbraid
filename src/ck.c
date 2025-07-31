@@ -6,8 +6,6 @@
 #include <sysexits.h>
 #include <time.h>
 
-#define alloc(x) calloc(1, x)
-
 struct ckctx {
   cord_t cord;
   struct elt {
@@ -30,7 +28,7 @@ void ckvisor(braid_t b, usize _) {
   struct ckctx *ctx;
   (void)_;
 
-  if ((ctx = *braiddata(b, BRAID_CK_KEY) = cordzalloc(b, sizeof(struct ckctx))) == NULL) err(EX_OSERR, "ckvisor: alloc");
+  if ((ctx = *braiddata(b, BRAID_CK_KEY) = cordzalloc(braidcurr(b), sizeof(struct ckctx))) == NULL) err(EX_OSERR, "ckvisor: alloc");
   ctx->cord = braidcurr(b);
 
   for (;;) {
@@ -45,7 +43,7 @@ void ckvisor(braid_t b, usize _) {
           braidunblock(b, e->cord, 0);
           if (prev) prev->next = e->next;
           else ctx->head = e->next;
-          free(e);
+          cordfree(ctx->cord, e);
           e = next;
         } else { 
           prev = e;
@@ -63,7 +61,7 @@ void ckwait(braid_t b, const struct timespec *ts) {
 
   while (!*ctx) braidyield(b);
 
-  if ((e = alloc(sizeof(struct elt))) == NULL) err(EX_OSERR, "ckwait: alloc");
+  if ((e = cordzalloc((*ctx)->cord, sizeof(struct elt))) == NULL) err(EX_OSERR, "ckwait: alloc");
   e->cord = braidcurr(b);
   e->ts = *ts;
   e->next = (*ctx)->head;

@@ -26,10 +26,14 @@ void    braidinfo(braid_t b);
 usize  *cordarg(cord_t c);
 void    cordhalt(braid_t b, cord_t c);
 
-void   *cordmalloc(braid_t b, size_t sz);
-void   *cordzalloc(braid_t b, size_t sz);
+void   *cordmalloc(cord_t c, size_t sz);
+void   *cordzalloc(cord_t c, size_t sz);
+void   *cordrealloc(cord_t c, void *p, size_t sz);
+void    cordfree(cord_t c, void *p);
 void   *braidmalloc(braid_t b, size_t sz);
 void   *braidzalloc(braid_t b, size_t sz);
+void   *braidrealloc(braid_t b, void *p, size_t sz);
+void    braidfree(braid_t b, void *p);
 
 #endif
 

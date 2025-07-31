@@ -7,8 +7,6 @@
 #include <string.h>
 #include <sysexits.h>
 
-#define alloc(x) calloc(1, x)
-
 struct chctx {
   cord_t cord;
   struct {
@@ -45,10 +43,11 @@ static struct chctx *wait_ctx(braid_t b) {
   return *ctx;
 }
 
-static ch_t ch_append(struct chctx *ctx) {
+static ch_t ch_append(braid_t b, struct chctx *ctx) {
   if (ctx->max + 1 > ctx->cap) {
     ctx->cap = (ctx->cap == 0) ? 4 : ctx->cap * 2;
-    if ((ctx->chs = realloc(ctx->chs, ctx->cap * sizeof(*ctx->chs))) == NULL)
+    // FIXME: this should not be in the braid's lifetime
+    if ((ctx->chs = braidrealloc(b, ctx->chs, ctx->cap * sizeof(*ctx->chs))) == NULL)
       err(EX_OSERR, "ch_append: realloc");
   }
   memset(&ctx->chs[ctx->max], 0, sizeof(ctx->chs[0]));
@@ -71,10 +70,11 @@ void chvisor(braid_t b, usize _) {
           if ((ctx->chs[i].send.head = send->next) == NULL) ctx->chs[i].send.tail = NULL;
           if ((ctx->chs[i].recv.head = recv->next) == NULL) ctx->chs[i].recv.tail = NULL;
 
+          // FIXME: if a cord sends/recvs and then halts, this is wrong.
           braidunblock(b, send->cord, 0);
           braidunblock(b, recv->cord, send->data);
-          free(send);
-          free(recv);
+          cordfree(ctx->cord, send);
+          cordfree(ctx->cord, recv);
         }
       }
     }
@@ -95,7 +95,7 @@ ch_t chcreate(braid_t b) {
     }
   }
 
-  return ch_append(ctx);
+  return ch_append(b, ctx);
 }
 
 void chdestroy(braid_t b, ch_t ch) {
@@ -110,14 +110,14 @@ void chdestroy(braid_t b, ch_t ch) {
     struct sendelt *tmp = ctx->chs[ch].send.head;
     ctx->chs[ch].send.head = tmp->next;
     braidunblock(b, tmp->cord, 1);
-    free(tmp);
+    cordfree(ctx->cord, tmp);
   }
 
   while (ctx->chs[ch].recv.head) {
     struct recvelt *tmp = ctx->chs[ch].recv.head;
     ctx->chs[ch].recv.head = tmp->next;
     braidunblock(b, tmp->cord, 0);
-    free(tmp);
+    cordfree(ctx->cord, tmp);
   }
 
   memset(&ctx->chs[ch], 0, sizeof(ctx->chs[0]));
@@ -129,11 +129,11 @@ uint chsend(braid_t b, ch_t ch, usize data) {
   struct chctx *ctx = wait_ctx(b);
 
   if (ctx->chs[ch].send.tail) {
-    if ((ctx->chs[ch].send.tail->next = alloc(sizeof(struct sendelt))) == NULL)
+    if ((ctx->chs[ch].send.tail->next = cordzalloc(ctx->cord, sizeof(struct sendelt))) == NULL)
       err(EX_OSERR, "chsend: alloc");
     ctx->chs[ch].send.tail = ctx->chs[ch].send.tail->next;
   } else {
-    if ((ctx->chs[ch].send.head = alloc(sizeof(struct sendelt))) == NULL)
+    if ((ctx->chs[ch].send.head = cordzalloc(ctx->cord, sizeof(struct sendelt))) == NULL)
       err(EX_OSERR, "chsend: alloc");
     ctx->chs[ch].send.tail = ctx->chs[ch].send.head;
   }
@@ -151,11 +151,11 @@ usize chrecv(braid_t b, ch_t ch) {
   struct chctx *ctx = wait_ctx(b);
 
   if (ctx->chs[ch].recv.tail) {
-    if ((ctx->chs[ch].recv.tail->next = alloc(sizeof(struct recvelt))) == NULL)
+    if ((ctx->chs[ch].recv.tail->next = cordzalloc(ctx->cord, sizeof(struct recvelt))) == NULL)
       err(EX_OSERR, "chrecv: alloc");
     ctx->chs[ch].recv.tail = ctx->chs[ch].recv.tail->next;
   } else {
-    if ((ctx->chs[ch].recv.head = alloc(sizeof(struct recvelt))) == NULL)
+    if ((ctx->chs[ch].recv.head = cordzalloc(ctx->cord, sizeof(struct recvelt))) == NULL)
       err(EX_OSERR, "chrecv: alloc");
     ctx->chs[ch].recv.tail = ctx->chs[ch].recv.head;
   }
