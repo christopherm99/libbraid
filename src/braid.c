@@ -217,6 +217,7 @@ void braidstart(braid_t b) {
 
   arena_destroy(b->arena);
   ctxdel(b->sched);
+  free(b);
 }
 
 void braidyield(braid_t b) {
