@@ -69,6 +69,7 @@ void *arena_malloc(arena_t a, size_t n) {
   if (!(b = ARENA_MALLOC(sizeof(struct block) + n))) return 0;
   b->prev = 0;
   b->next = a->head;
+  if (a->head) a->head->prev = b;
   a->head = b;
   return b + 1;
 }
@@ -80,11 +81,11 @@ void *arena_zalloc(arena_t a, size_t n) {
 }
 
 void *arena_realloc(arena_t a, void *p, size_t n) {
-  struct block *b = (struct block *)p - 1, *nb;
+  struct block *b, *nb;
   if (!p) return arena_malloc(a, n);
-  if (!(nb = ARENA_REALLOC(b, sizeof(sizeof(struct block) + n)))) return 0;
+  if (!(nb = ARENA_REALLOC(b = (struct block *)p - 1, sizeof(struct block) + n))) return 0;
   if (b != nb) {
-    if (nb->prev) nb->prev = nb;
+    if (nb->prev) nb->prev->next = nb;
     else a->head = nb;
     if (nb->next) nb->next->prev = nb;
   }
