@@ -5,3 +5,5 @@ cscope.out
 *.dSYM
 compile_commands.json
 .cache/
+
+config.mk

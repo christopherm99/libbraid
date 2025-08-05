@@ -53,7 +53,7 @@ int tcpdial(braid_t b, int fd, const char *host, int port) {
   if (resolve(host, &sa.sin_addr.s_addr) < 0) return -1;
   if (connect(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0 && errno != EINPROGRESS) return -1;
 
-  fdpoll(b, fd, POLLOUT);
+  fdwait(b, fd, 'r');
   if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &e, &errlen) < 0) return -1;
   if (e != 0) {
     errno = e;
@@ -83,7 +83,7 @@ int tcplisten(const char *host, int port) {
 int tcpaccept(braid_t b, int fd) {
   int newfd, one = 1;
 
-  fdpoll(b, fd, POLLIN);
+  fdwait(b, fd, 'r');
   if ((newfd = accept(fd, NULL, NULL)) < 0) return -1;
   setsockopt(newfd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
 

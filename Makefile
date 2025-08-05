@@ -1,12 +1,13 @@
-SRCS := $(wildcard src/*.c)
-OBJS := $(patsubst src/%.c, build/%.o, $(SRCS))
+include config.mk
+
+SRCS := $(wildcard src/*.c) $(wildcard src/io/*.c) $(wildcard src/io/$(BACKEND)/*.c)
+OBJS := $(SRCS:src/%.c=build/%.o)
 $(shell mkdir -p build)
 
 CFLAGS := -Wall -Wextra -Werror -pedantic -std=c99 -g -Iinclude \
           -Wno-strict-prototypes -Wno-incompatible-pointer-types -Wno-strict-aliasing \
           -D_POSIX_C_SOURCE=199309L -D_DARWIN_C_SOURCE -D_XOPEN_SOURCE=500
 MACHINE := $(shell uname -m)
-PREFIX ?= /usr/local
 
 .PHONY: all clean examples
 
@@ -16,6 +17,7 @@ build/libbraid.a: $(OBJS) build/ctxswap.$(MACHINE).o
 	$(AR) rcs $@ $^
 
 $(OBJS): build/%.o: src/%.c
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 build/ctxswap.$(MACHINE).o: src/ctxswap.$(MACHINE).S

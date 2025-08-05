@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include <braid.h>
+#include <braid/io.h>
 #include <braid/ch.h>
 
 int goal = 100;
@@ -18,7 +19,7 @@ void prime(braid_t b, ch_t c) {
   if ((p = chrecv(b, c)) > goal) braidexit(b);
 
   printf("%d\n", p);
-  braidadd(b, prime, 65536, "prime", CORD_NORMAL, nc = chcreate(b));
+  braidadd(b, prime, 65536, "prime", CORD_NORMAL, nc = chcreate());
 
   for (;;) if ((i = chrecv(b, c)) % p) chsend(b, nc, i);
 }
@@ -29,9 +30,9 @@ void start(braid_t b, ch_t c) {
 
 int main(void) {
   braid_t b = braidinit();
-  ch_t c = chcreate(b);
+  ch_t c = chcreate();
 
-  braidadd(b, chvisor, 65536, "chvisor", CORD_SYSTEM, 0);
+  braidadd(b, iovisor, 65536, "iovisor", CORD_SYSTEM, 0);
   braidadd(b, prime, 65536, "prime", CORD_NORMAL, c);
   braidadd(b, start, 65536, "start", CORD_NORMAL, c);
   braidstart(b);

@@ -260,6 +260,7 @@ found:
 void braidexit(braid_t b) {
   b->running->next = b->zombies;
   b->zombies = b->running;
+  b->cords.head = NULL;
   ctxswap(dummy_ctx, b->sched);
 }
 

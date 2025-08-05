@@ -9,6 +9,14 @@ WHAT
   just by writing a bit of assembly for saving and restoring contexts (and some
   glue in `ctxcreate`).
 
+  Non-blocking IO is supported using one of the following backends: kqueue,
+  io_uring (via liburing), and poll (requires timerfd).
+
+INSTALLATION
+
+  First run `./configure`. Options are available using the `--help` flag.
+  Subsequently, `make` can be run, along with `make install`.
+
 TERMINOLOGY
 
  * braid: a set of cooperatively scheduled cords.
@@ -145,18 +153,21 @@ USAGE
             Arena allocators, scoped to currently running cord or overall braid
             lifetimes.
 
-  Non-blocking IO is available through `braid/fd.h`.
+  Non-blocking IO routines below all rely on the following system cord in
+  `braid/io.h`.
 
-    void    fdvisor(braid_t b, usize _);
+    void    iovisor(braid_t b, usize _);
 
-            This function should be installed as a system cord into any braid
-            using non-blocking IO. The argument `_` is ignored.
+            This function must be started as a system cord in order for the
+            following non-blocking IO routines to function.
 
-    short   fdpoll(braid_t b, int fd, short events);
+  File descriptor manipulation is available through `braid/fd.h`.
 
-            Yields the current cord until one of the specified events (or error
-            events) occurs on the file descriptor `fd`. The `events` argument
-            is the same as in `poll(2)`, as is the return value.
+    void    fdwait(braid_t b, int fd, char rw);
+
+            Yields the current cord until the file descriptor is ready for
+            reading or writing, as specified by `rw` ('r' for read, 'w' for
+            write).
 
     int     fdread(braid_t b, int fd, void *buf, size_t count);
 
@@ -175,9 +186,7 @@ USAGE
             Connects to the specified host and port. The `host` argument should
             be specified like "127.0.0.1" or "example.com". The `fd` argument can
             be used to specify a preexisting socket, but if negative, `tcpdial`
-            will create a new socket. Do not call this function from a braid
-            that does not have the `fdvisor` system cord. Returns the connected
-            socket.
+            will create a new socket. Returns the connected socket.
 
     int     tcplisten(const char *host, int port);
 
@@ -189,29 +198,22 @@ USAGE
     int     tcpaccept(braid_t b, int fd);
 
             Non-blocking waits for a connection on the listening socket `fd`.
-            Do not call this function from a braid that does not have the
-            `fdvisor` system cord. Returns the accepted socket.
+            Returns the accepted socket.
 
   Go-style (unbuffered) channels are available through `braid/ch.h`.
 
-    void    chvisor(braid_t b, usize _);
+    ch_t    chcreate(void);
 
-            This function should be installed as a system cord into any braid
-            using channels. The argument `_` is ignored.
+            Creates a new channel.
 
-    ch_t    chcreate(braid_t b);
+    void    chdestroy(ch_t ch);
 
-            Creates a new channel in the braid `b`.
+            Destroys the channel `ch`.
 
-    void    chdestroy(braid_t b, ch_t ch);
-
-            Destroys the channel `ch` in the braid `b`. All pending sends return
-            failed and all pending receives return 0.
-
-    uint    chsend(braid_t b, ch_t ch, usize data);
+    int     chsend(braid_t b, ch_t ch, usize data);
 
             Sends `data` to the channel `ch` in the braid `b`, blocking until
-            the data is received. Returns 0 on success, or 1 if the channel was
+            the data is received. Returns 0 on success, or -1 if the channel was
             destroyed.
 
     usize   chrecv(braid_t b, ch_t ch);
@@ -221,15 +223,6 @@ USAGE
             destroyed.
 
   Clock routines are available through `braid/ck.h`.
-
-    void    ckvisor(braid_t b, usize _);
-
-            This function should be installed as a system cord into any braid
-            using any of the clock routines. The argument `_` is ignored.
-
-    void    ckwait(braid_t b, const struct timespec *ts);
-
-            Yields until the specified time has passed.
 
     void    cknsleep(braid_t b, ulong ns);
     void    ckusleep(braid_t b, ulong us);

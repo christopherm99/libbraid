@@ -1,0 +1,124 @@
+#!/bin/sh
+
+prefix="/usr/local"
+cc=${CC:-cc}
+backend=""
+
+usage() {
+  cat <<EOF
+usage: $0 [OPTIONS]
+
+options:
+  --cc=CC             C compiler (default: $cc)
+  --prefix=PREFIX     installation prefix (default: $prefix)
+  --backend           override IO backend (liburing, kqueue, or poll)
+  --help              display this help message
+EOF
+  exit 0
+}
+
+liburing() {
+  printf "Checking for liburing... "
+  cat > /tmp/uringtest.c <<EOF
+#include <liburing.h>
+int main() {
+  struct io_uring ring;
+  return io_uring_queue_init(1, &ring, 0);
+}
+EOF
+  if $cc -o /tmp/uringtest /tmp/uringtest.c -luring 2>/dev/null; then
+    rm -f /tmp/uringtest /tmp/uringtest.c
+    printf "yes\n"
+    return 0
+  fi
+  printf "no\n"
+  return 1
+}
+
+kqueue() {
+  printf "Checking for kqueue... "
+  cat > /tmp/kqueuetest.c <<EOF
+#include <sys/event.h>
+int main() {
+  return kqueue();
+}
+EOF
+  if $cc -o /tmp/kqueuetest /tmp/kqueuetest.c 2>/dev/null; then
+    rm -f /tmp/kqueuetest /tmp/kqueuetest.c
+    printf "yes\n"
+    return 0
+  fi
+  printf "no\n"
+  return 1
+}
+
+poll() {
+  printf "Checking for poll... "
+  cat > /tmp/polltest.c <<EOF
+#include <poll.h>
+int main() {
+  struct pollfd pfd;
+  return 0;
+}
+EOF
+  if $cc -o /tmp/polltest /tmp/polltest.c 2>/dev/null; then
+    rm -f /tmp/polltest /tmp/polltest.c
+    printf "yes\n"
+    return 0
+  fi
+  printf "no\n"
+  return 1
+}
+
+timerfd() {
+  printf "Checking for timerfd... "
+  cat > /tmp/timerfdtest.c <<EOF
+#include <sys/timerfd.h>
+int main() {
+  return timerfd_create(CLOCK_MONOTONIC, 0);
+}
+EOF
+  if $cc -o /tmp/timerfdtest /tmp/timerfdtest.c 2>/dev/null; then
+    rm -f /tmp/timerfdtest /tmp/timerfdtest.c
+    return 0
+  else
+    printf "no\n"
+    return 1
+  fi
+}
+
+for arg in "$@"; do
+  case $arg in
+    --prefix=*) prefix="${arg#*=}" ;;
+    --cc=*) cc="${arg#*=}" ;;
+    --backend=*) backend="${arg#*=}" ;;
+    --help) usage ;;
+    *) echo "Unknown option: $arg" ; usage ;;
+  esac
+done
+
+if [ -z "$backend" ]; then
+  if liburing; then backend=liburing
+  elif kqueue; then backend=kqueue
+  elif poll; then
+    if ! timerfd; then
+      printf "poll backend requires timerfd\n"
+      exit 1
+    fi
+    backend=poll
+  else
+    printf "No supported IO backend\n"
+    exit 1
+  fi
+fi
+
+cat > config.mk <<EOF
+PREFIX := $prefix
+CC := $cc
+BACKEND := $backend
+EOF
+
+if [ "$backend" = "liburing" ]; then
+  echo 'EXTRA_LDFLAGS := -luring' >> config.mk
+fi
+

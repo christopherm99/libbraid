@@ -10,8 +10,8 @@
 #include <unistd.h>
 
 #include <braid.h>
+#include <braid/io.h>
 #include <braid/fd.h>
-
 
 void producer(braid_t b, usize fd) {
   int i;
@@ -43,7 +43,7 @@ int main(void) {
 
   if (pipe(pipefd) < 0) err(EX_OSERR, "pipe");
 
-  braidadd(b, fdvisor, 65536, "fdvisor", CORD_SYSTEM, 0);
+  braidadd(b, iovisor, 65536, "iovisor", CORD_SYSTEM, 0);
   braidadd(b, producer, 65536, "producer", CORD_NORMAL, pipefd[1]);
   braidadd(b, consumer, 65536, "consumer", CORD_NORMAL, pipefd[0]);
 
