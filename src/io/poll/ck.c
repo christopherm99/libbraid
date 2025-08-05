@@ -11,7 +11,7 @@
 
 void cknsleep(braid_t b, ulong ns) {
   int tfd;
-  struct itimerspec its = { .tv_sec = ns / 1000000000L, .tv_nsec = ns % 1000000000L };
+  struct itimerspec its = { .it_value = {.tv_sec = ns / 1000000000L, .tv_nsec = ns % 1000000000L} };
 
   if ((tfd = timerfd_create(CLOCK_REALTIME, TFD_CLOEXEC)) == -1) err(EX_OSERR, "timerfd_create");
   if (timerfd_settime(tfd, 0, &its, 0)) err(EX_OSERR, "timerfd_settime");

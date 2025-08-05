@@ -16,6 +16,7 @@ void    braidstart(braid_t b);
 void    braidyield(braid_t b);
 usize   braidblock(braid_t b);
 int     braidunblock(braid_t b, cord_t c, usize val);
+void    braidstop(braid_t b);
 void    braidexit(braid_t b);
 cord_t  braidcurr(braid_t b);
 uint    braidcnt(braid_t b);

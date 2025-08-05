@@ -257,10 +257,17 @@ found:
   return 0;
 }
 
+void braidstop(braid_t b) {
+  if (b->cords.tail) b->cords.tail->next = b->zombies;
+  b->running->next = b->cords.head;
+  b->zombies = b->running;
+  b->cords.head = 0;
+  ctxswap(dummy_ctx, b->sched);
+}
+
 void braidexit(braid_t b) {
   b->running->next = b->zombies;
   b->zombies = b->running;
-  b->cords.head = NULL;
   ctxswap(dummy_ctx, b->sched);
 }
 

@@ -64,12 +64,12 @@ void iovisor(braid_t b, usize _) {
         err(EX_OSERR, "fdvisor: poll");
       if (rc == 0) braidyield(b);
       else {
-        uint i;
-        for (i = 0; i < ctx->cnt; i++) {
+        uint i = 0;
+        while (i < ctx->cnt) {
           if (ctx->pfds[i].revents & (POLLIMPLICIT | ctx->pfds[i].events)) {
             braidunblock(b, ctx->cords[i], ctx->pfds[i].revents);
-            poll_remove(ctx, ctx->cords[i--]);
-          }
+            poll_remove(b, ctx->cords[i]);
+          } else i++;
         }
       }
       braidyield(b);

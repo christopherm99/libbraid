@@ -7,7 +7,7 @@
 extern void poll_append(braid_t b, struct pollfd *pfd);
 
 void fdwait(braid_t b, int fd, char rw) {
-  struct pollfd p = { .fd = fd, .events = rw == 'r' ? POLLOUT : POLLIN };
+  struct pollfd p = { .fd = fd, .events = rw == 'r' ? POLLIN : POLLOUT };
 
   poll_append(b, &p);
   braidblock(b);

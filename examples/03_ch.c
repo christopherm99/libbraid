@@ -4,7 +4,6 @@
  */
 
 #include <stdio.h>
-#include <stdlib.h>
 
 #include <braid.h>
 #include <braid/io.h>
@@ -16,7 +15,7 @@ void prime(braid_t b, ch_t c) {
   ch_t nc;
   int i, p;
 
-  if ((p = chrecv(b, c)) > goal) braidexit(b);
+  if ((p = chrecv(b, c)) > goal) braidstop(b);
 
   printf("%d\n", p);
   braidadd(b, prime, 65536, "prime", CORD_NORMAL, nc = chcreate());

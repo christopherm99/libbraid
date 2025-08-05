@@ -101,6 +101,11 @@ USAGE
             returned from the `braidblock` call. If the cord is not found in the
             blocked list, returns -1, otherwise returns 0.
 
+    void    braidstop(braid_t b);
+
+            Shuts down a braid, causing braidstart to return, and the braid to
+            be cleaned up.
+
     void    braidexit(braid_t b);
 
             Called by a cord to exit the braid. The cord will be removed from the
