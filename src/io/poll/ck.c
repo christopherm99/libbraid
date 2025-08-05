@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <braid.h>
 #include <braid/fd.h>
 #include <braid/ck.h>

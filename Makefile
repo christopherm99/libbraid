@@ -5,8 +5,7 @@ OBJS := $(SRCS:src/%.c=build/%.o)
 $(shell mkdir -p build)
 
 CFLAGS := -Wall -Wextra -Werror -pedantic -std=c99 -g -Iinclude \
-          -Wno-strict-prototypes -Wno-incompatible-pointer-types -Wno-strict-aliasing \
-          -D_POSIX_C_SOURCE=199309L -D_DARWIN_C_SOURCE -D_XOPEN_SOURCE=500
+          -Wno-strict-prototypes -Wno-incompatible-pointer-types -Wno-strict-aliasing
 MACHINE := $(shell uname -m)
 
 .PHONY: all clean examples
