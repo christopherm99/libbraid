@@ -119,6 +119,6 @@ BACKEND := $backend
 EOF
 
 if [ "$backend" = "liburing" ]; then
-  echo 'EXTRA_LDFLAGS := -luring' >> config.mk
+  echo 'PRIVATE_LIBS := -luring' >> config.mk
 fi
 

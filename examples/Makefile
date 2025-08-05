@@ -5,7 +5,7 @@ PROGS := $(SRCS:.c=)
 CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types \
           -pedantic -std=c99 -g \
           -I../include
-LDFLAGS := -L../build -lbraid
+LDFLAGS := -L../build $(shell pkg-config --libs ../build/libbraid.pc)
 
 .PHONY: all clean
 

@@ -15,7 +15,8 @@ WHAT
 INSTALLATION
 
   First run `./configure`. Options are available using the `--help` flag.
-  Subsequently, `make` can be run, along with `make install`.
+  Subsequently, `make` can be run, along with `make install`. After
+  installation, use pkg-config to determine dependencies.
 
 TERMINOLOGY
 

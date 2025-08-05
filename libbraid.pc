@@ -1,0 +1,10 @@
+prefix=@PREFIX@
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: libbraid
+Version: 0.1
+Description: simple ANSI C coroutines
+
+Libs: -L${libdir} -lbraid @PRIVATE_LIBS@
+Cflags: -I${includedir}
