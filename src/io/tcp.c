@@ -53,7 +53,7 @@ int tcpdial(braid_t b, int fd, const char *host, int port) {
   if (resolve(host, &sa.sin_addr.s_addr) < 0) return -1;
   if (connect(fd, (struct sockaddr *)&sa, sizeof(sa)) < 0 && errno != EINPROGRESS) return -1;
 
-  fdwait(b, fd, 'r');
+  fdwait(b, fd, 'w');
   if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &e, &errlen) < 0) return -1;
   if (e != 0) {
     errno = e;
