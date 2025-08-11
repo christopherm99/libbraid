@@ -129,11 +129,14 @@ cord_t braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar
 
   if ((c = alloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: alloc");
   va_start(args, nargs);
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
   c->ctx = ctxcreate(
       lambda_compose((fn_t)pool_alloc(b->lambda_pool),
         lambda_bindldr((fn_t)pool_alloc(b->lambda_pool), braidexit, 0, 1, b),
         lambda_vbindldr((fn_t)pool_alloc(b->lambda_pool), f, 1, nargs, args)),
       stacksize, (usize)b);
+#pragma GCC diagnostic pop
   va_end(args);
   c->flags = flags;
   c->arena = arena_create();

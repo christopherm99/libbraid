@@ -186,7 +186,10 @@ uintptr_t (*lambda_vbind(uintptr_t (*g)(), uintptr_t (*f)(), int n, va_list args
 #endif
   }
 
-  __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_MAX_SIZE(n));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+  __builtin___clear_cache(g, (char *)g + LAMBDA_COMPOSE_SIZE);
+#pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT
   if (mprotect((void *)((uintptr_t)g & ~0xFFF), LAMBDA_BIND_MAX_SIZE(n), PROT_READ | PROT_EXEC)) return NULL;
@@ -240,7 +243,10 @@ uintptr_t (*lambda_vbindldr(uintptr_t (*g)(), uintptr_t (*f)(), int start, int n
 #endif
   }
 
-  __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_SIZE(0,n,0));
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
+  __builtin___clear_cache(g, (char *)g + LAMBDA_COMPOSE_SIZE);
+#pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT
   if (mprotect((void *)((uintptr_t)g & ~0xFFF), LAMBDA_BIND_SIZE(0,n,0), PROT_READ | PROT_EXEC)) return NULL;
@@ -273,16 +279,20 @@ fn_t lambda_compose(fn_t h, fn_t f, fn_t g) {
         0xD61F0220, // br  x17
       }, 16);
   }
-#elif defined(__X8_64__)
+#elif defined(__x86_64__)
   memcpy(p, (uchar []){
-      0x48, 0xB8, u64(g), // movabs rax, g
-      0xFF, 0xD0,         // call rax
-      0x48, 0x89, 0xC7,   // mov rdi, rax
-      0x48, 0xB8, u64(f), // movabs rax, f
-      0xFF, 0xE0          // jmp rax
+      0x48, 0xB8, u64((uintptr_t)g), // movabs rax, g
+      0xFF, 0xD0,                    // call rax
+      0x48, 0x89, 0xC7,              // mov rdi, rax
+      0x48, 0xB8, u64((uintptr_t)f), // movabs rax, f
+      0xFF, 0xE0                     // jmp rax
     }, 27);
 #endif
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
   __builtin___clear_cache(h, (char *)h + LAMBDA_COMPOSE_SIZE);
+#pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT
   if (mprotect((void *)((uintptr_t)h & ~0xFFF), LAMBDA_COMPOSE_SIZE, PROT_READ | PROT_EXEC)) return NULL;
