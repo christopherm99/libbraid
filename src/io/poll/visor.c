@@ -50,7 +50,7 @@ static void poll_remove(braid_t b, cord_t c) {
   warnx("poll_remove: cord not found");
 }
 
-void iovisor(braid_t b, usize _) {
+void iovisor(braid_t b) {
   struct ioctx *ctx = getctx(b);
 
   ctx->cord = braidcurr(b);
@@ -75,6 +75,5 @@ void iovisor(braid_t b, usize _) {
       braidyield(b);
     } else { ctx->is_blocked = 1; braidblock(b); }
   }
-  (void)_;
 }
 

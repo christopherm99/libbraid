@@ -5,6 +5,6 @@
 
 #define BRAID_IO_KEY 0xFD
 
-void iovisor(braid_t b, usize _);
+void iovisor(braid_t b);
 
 #endif

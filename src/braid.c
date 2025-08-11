@@ -13,13 +13,13 @@
 
 #include "arena.h"
 #include "lambda.h"
+#include "pool.h"
 
 #define alloc(x) calloc(1, x)
 
 struct cord {
   cord_t  next, prev;
   ctx_t   ctx;
-  void  (*entry)(braid_t, usize);
   usize   val;
   char   *name;
   arena_t arena;
@@ -47,6 +47,7 @@ struct braid {
   } blocked;
   cord_t zombies;
   arena_t arena;
+  pool_t lambda_pool;
   struct data *data;
 };
 
@@ -101,29 +102,40 @@ void braidinfo(braid_t b) {
   for (c = b->blocked.head; c; c = c->next) cordinfo(c, 'b');
 }
 
+#ifdef __APPLE__
+#define MMAP_PROT PROT_READ | PROT_WRITE
+#define foreachsig(var,body) { int var = SIGSEGV; { body } var = SIGBUS; { body } }
+#else
+#define MMAP_PROT PROT_READ | PROT_WRITE | PROT_EXEC
+#define foreachsig(var,body) { int var = SIGSEGV; { body } }
+#endif
+
 braid_t braidinit(void) {
   braid_t b;
+  void *mem;
 
   if ((b = alloc(sizeof(struct braid))) == NULL) err(EX_OSERR, "braidinit: alloc");
   b->arena = arena_create();
+  // seems like plenty of space...
+  if ((mem = mmap(0, 1073741824, MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED) err(EX_OSERR, "mmap");
+  b->lambda_pool = pool_new(mem, 1073741824, LAMBDA_BIND_SIZE(0,LAMBDA_BIND_MAX_ARGS-1,0));
 
   return b;
 }
 
-static void ripcord(usize _b) {
-  braid_t b = (braid_t)_b;
-  b->running->entry(b, b->running->val);
-  braidexit(b);
-}
-
-cord_t braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char *name, uchar flags, usize arg) {
+cord_t braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, ...) {
   cord_t c;
+  va_list args;
 
   if ((c = alloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: alloc");
-  c->ctx = ctxcreate(ripcord, stacksize, (usize)b);
-  c->entry = f;
+  va_start(args, nargs);
+  c->ctx = ctxcreate(
+      lambda_compose((fn_t)pool_alloc(b->lambda_pool),
+        lambda_bindldr((fn_t)pool_alloc(b->lambda_pool), braidexit, 0, 1, b),
+        lambda_vbindldr((fn_t)pool_alloc(b->lambda_pool), f, 1, nargs, args)),
+      stacksize, (usize)b);
+  va_end(args);
   c->flags = flags;
-  c->val = arg;
   c->arena = arena_create();
   c->name = arena_strdup(c->arena, name);
 
@@ -140,13 +152,6 @@ static void segvhandler(int sig, siginfo_t *info, void *uap, braid_t b) {
   (void)uap, (void)sig;
 }
 
-#ifdef __APPLE__
-#define MMAP_PROT PROT_READ | PROT_WRITE
-#define foreachsig(var,body) { int var = SIGSEGV; { body } var = SIGBUS; { body } }
-#else
-#define MMAP_PROT PROT_READ | PROT_WRITE | PROT_EXEC
-#define foreachsig(var,body) { int var = SIGSEGV; { body } }
-#endif
 
 void braidstart(braid_t b) {
   void *mem;
@@ -158,12 +163,12 @@ void braidstart(braid_t b) {
   b->sched = ctxempty();
 
   /* install signal handlers */
-  if ((mem = mmap(NULL, LAMBDA_SIZE(0,1,0) + LAMBDA_SIZE(0,1,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
+  if ((mem = mmap(NULL, LAMBDA_BIND_SIZE(0,1,0) + LAMBDA_BIND_SIZE(0,1,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "mmap");
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
-  h1 = (usize (*)())mem;
-  h2 = (usize (*)())((char *)mem + LAMBDA_SIZE(0,1,0));
+  h1 = (fn_t)mem;
+  h2 = (fn_t)((char *)mem + LAMBDA_BIND_SIZE(0,1,0));
 #pragma GCC diagnostic pop
   if (!(ss.ss_sp = braidmalloc(b, SIGSTKSZ))) err(EX_OSERR, "alloc sigstack");
   ss.ss_size = SIGSTKSZ;
@@ -204,7 +209,7 @@ void braidstart(braid_t b) {
     }
   )
   if (!sigaction(SIGQUIT, NULL, &osa) && (osa.sa_handler == h2)) signal(SIGQUIT, SIG_DFL);
-  munmap(mem, LAMBDA_SIZE(0,1,0));
+  munmap(mem, LAMBDA_BIND_SIZE(0,1,0));
 
   while ((c = b->cords.head)) {
     b->cords.head = c->next;

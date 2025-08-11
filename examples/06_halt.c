@@ -11,16 +11,15 @@ void bar(braid_t b, cord_t c) {
   puts("halted!");
 }
 
-void foo(braid_t b, usize arg) {
-  braidadd(b, bar, 65536, "bar", CORD_NORMAL, (usize)braidcurr(b));
+void foo(braid_t b) {
+  braidadd(b, bar, 65536, "bar", CORD_NORMAL, 1, (usize)braidcurr(b));
   braidyield(b);
   puts("i will never print!");
-  (void)arg;
 }
 
 int main(void) {
   braid_t b = braidinit();
-  braidadd(b, foo, 65536, "foo", CORD_NORMAL, 1337);
+  braidadd(b, foo, 65536, "foo", CORD_NORMAL, 0);
   braidstart(b);
   return 0;
 }

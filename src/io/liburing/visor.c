@@ -37,7 +37,7 @@ struct io_uring_sqe *get_sqe(braid_t b) {
   return sqe;
 }
 
-void iovisor(braid_t b, usize _) {
+void iovisor(braid_t b) {
   struct ioctx *ctx = getctx(b);
 
   ctx->cord = braidcurr(b);
@@ -68,6 +68,5 @@ yield:
       braidblock(b);
     }
   }
-  (void)_;
 }
 

@@ -2,9 +2,8 @@ SRCS := $(wildcard *.c)
 OBJS := $(SRCS:.c=.o)
 PROGS := $(SRCS:.c=)
 
-CFLAGS := -Wall -Wextra -Wno-incompatible-pointer-types \
-          -pedantic -std=c99 -g \
-          -I../include
+CFLAGS := -Wall -Wextra -Werror -pedantic -std=c99 \
+          -Wno-strict-prototypes -g -I../include
 LDFLAGS := -L../build $(shell pkg-config --libs ../build/libbraid.pc)
 
 .PHONY: all clean

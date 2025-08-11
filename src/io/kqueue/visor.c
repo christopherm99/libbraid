@@ -55,7 +55,7 @@ static void kev_remove(struct ioctx *ctx, cord_t c) {
   warnx("kev_remove: cord not found");
 }
 
-void iovisor(braid_t b, usize _) {
+void iovisor(braid_t b) {
   struct ioctx *ctx = getctx(b);
 
   if ((ctx->kq = kqueue()) == -1) err(EX_OSERR, "iovisor: kqueue");
@@ -80,6 +80,5 @@ void iovisor(braid_t b, usize _) {
       braidblock(b);
     }
   }
-  (void)_;
 }
 

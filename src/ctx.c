@@ -29,8 +29,6 @@ struct ctx {
 struct ctx dummy = {0};
 ctx_t dummy_ctx = &dummy;
 
-static void crash(void) { errx(EX_SOFTWARE, "bottom of stack"); }
-
 ctx_t ctxempty(void) {
   struct ctx *c;
 
@@ -55,13 +53,10 @@ ctx_t ctxcreate(void (*f)(usize), usize stacksize, usize arg) {
 
   p = (usize *)((usize)c->stack + mapsize);
 #ifdef __amd64__
-  *--p = (usize)crash;
   *--p = (usize)f;
   c->rsp = (usize)p;
   c->rdi = (usize)arg;
 #elif defined __aarch64__
-  *--p = (usize)crash;
-  *--p = (usize)crash;
   c->sp = (usize)p;
   c->x30 = (usize)f;
   c->x19 = (usize)p;

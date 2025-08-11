@@ -11,7 +11,7 @@ typedef struct braid * braid_t;
 typedef struct cord * cord_t;
 
 braid_t braidinit(void);
-cord_t  braidadd(braid_t b, void (*f)(braid_t, usize), usize stacksize, const char *name, uchar flags, usize arg);
+cord_t  braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, ...);
 void    braidstart(braid_t b);
 void    braidyield(braid_t b);
 usize   braidblock(braid_t b);

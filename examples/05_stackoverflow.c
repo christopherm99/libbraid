@@ -5,7 +5,10 @@
 
 #include <braid.h>
 
-void fn(braid_t b, usize _) { fn(b, _); }
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winfinite-recursion"
+void fn(braid_t b) { fn(b); }
+#pragma GCC diagnostic pop
 
 int main(void) {
   braid_t b = braidinit();
