@@ -1,8 +1,6 @@
 /* lambda.h - v0.2
  * Functional programming for C
  *
- * Requires compiling with -Wno-strict-prototypes
- *
  * Copyright (c) 2025 Christopher Milan
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -30,7 +28,10 @@
 #include <stdint.h>
 #include <stdarg.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
 typedef uintptr_t (*fn_t)();
+#pragma GCC diagnostic pop
 
 typedef struct {
   uintptr_t val;
@@ -60,15 +61,15 @@ typedef struct {
 // LAMBDA_BIND_SIZE(movs, ldrs, cycles), where cycles is the total number of
 // disjoint cycles in the mov operations. The maximum value for n is given by
 // LAMBDA_BIND_MAX_ARGS.
-fn_t lambda_bind(fn_t g, fn_t f, int n, ...);
-fn_t lambda_vbind(fn_t g, fn_t f, int n, va_list args);
+fn_t lambda_bind(void *g, fn_t f, int n, ...);
+fn_t lambda_vbind(void *g, fn_t f, int n, va_list args);
 
 // the same as lambda_bind, but all arguments are automatically interpreted as
 // LDR, without requiring the wrapper macro. Start specifies the destination
 // index to start at, and arguments are inserted sequentially. LAMBDA_BIND_MAX_ARGS corresponds
 // to the maximum value of start + n.
-fn_t lambda_bindldr(fn_t g, fn_t f, int start, int n, ...);
-fn_t lambda_vbindldr(fn_t g, fn_t f, int start, int n, va_list args);
+fn_t lambda_bindldr(void *g, fn_t f, int start, int n, ...);
+fn_t lambda_vbindldr(void *g, fn_t f, int start, int n, va_list args);
 
 #ifdef __aarch64__
 #define LAMBDA_COMPOSE_SIZE 40
@@ -78,7 +79,7 @@ fn_t lambda_vbindldr(fn_t g, fn_t f, int start, int n, va_list args);
 
 // Creates a new function h from the functions f and g by composing f with g,
 // ie. h(x) = f(g(x)). The required size for h is given by LAMBDA_COMPOSE_SIZE.
-fn_t lambda_compose(fn_t h, fn_t f, fn_t g);
+fn_t lambda_compose(void *h, fn_t f, fn_t g);
 
 #endif
 #ifdef LAMBDA_IMPLEMENTATION
@@ -131,20 +132,17 @@ static void move_one(void **p, int n, int i, int src[static n], const int dst[st
   }
 }
 
-uintptr_t (*lambda_bind(uintptr_t (*g)(), uintptr_t (*f)(), int n, ...))() {
+fn_t lambda_bind(void *g, fn_t f, int n, ...) {
   va_list args;
-  uintptr_t (*ret)();
+  fn_t ret;
   va_start(args, n);
   ret = lambda_vbind(g, f, n, args);
   va_end(args);
   return ret;
 }
 
-uintptr_t (*lambda_vbind(uintptr_t (*g)(), uintptr_t (*f)(), int n, va_list args))() {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-  void *p = (void *)g;
-#pragma GCC diagnostic pop
+fn_t lambda_vbind(void *g, fn_t f, int n, va_list args) {
+  void *p = g;
   int n_ldr = 0, n_mov = 0, msrc[LAMBDA_BIND_MAX_ARGS] = {0}, mdst[LAMBDA_BIND_MAX_ARGS] = {0}, ldst[LAMBDA_BIND_MAX_ARGS] = {0};
   uintptr_t lsrc[LAMBDA_BIND_MAX_ARGS] = {0};
   char status[LAMBDA_BIND_MAX_ARGS] = { 0 };
@@ -193,32 +191,26 @@ uintptr_t (*lambda_vbind(uintptr_t (*g)(), uintptr_t (*f)(), int n, va_list args
 #endif
   }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-  __builtin___clear_cache((void *)g, (char *)g + LAMBDA_BIND_MAX_SIZE(n));
-#pragma GCC diagnostic pop
+  __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_MAX_SIZE(n));
 
 #if LAMBDA_USE_MPROTECT
   if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_MAX_SIZE(n), PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
-  return g;
+  return (fn_t)g;
 }
 
-uintptr_t (*lambda_bindldr(uintptr_t (*g)(), uintptr_t (*f)(), int start, int n, ...))() {
+fn_t lambda_bindldr(void *g, fn_t f, int start, int n, ...) {
   va_list args;
-  uintptr_t (*ret)();
+  fn_t ret;
   va_start(args, n);
   ret = lambda_vbindldr(g, f, start, n, args);
   va_end(args);
   return ret;
 }
 
-uintptr_t (*lambda_vbindldr(uintptr_t (*g)(), uintptr_t (*f)(), int start, int n, va_list _args))() {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-  void *p = (void *)g;
-#pragma GCC diagnostic pop
+fn_t lambda_vbindldr(void *g, fn_t f, int start, int n, va_list _args) {
+  void *p = g;
   uintptr_t args[LAMBDA_BIND_MAX_ARGS] = {0};
 #if LAMBDA_USE_MPROTECT
   long pagemask = ~(sysconf(_SC_PAGESIZE) - 1);
@@ -233,7 +225,7 @@ uintptr_t (*lambda_vbindldr(uintptr_t (*g)(), uintptr_t (*f)(), int start, int n
 
   {
 #ifdef ldr
-    uintptr_t *d = (uintptr_t *)((uint32_t *)p + (n + start) + 2);
+    uintptr_t *d = (uintptr_t *)((uint32_t *)p + n + 2);
 #endif
     for (int i = 0; i < n; i++) {
 #ifdef ldr
@@ -253,23 +245,17 @@ uintptr_t (*lambda_vbindldr(uintptr_t (*g)(), uintptr_t (*f)(), int start, int n
 #endif
   }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-  __builtin___clear_cache((void *)g, (char *)g + LAMBDA_BIND_SIZE(0,n,0));
-#pragma GCC diagnostic pop
+  __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_SIZE(0,n,0));
 
 #if LAMBDA_USE_MPROTECT
   if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_SIZE(0,n,0), PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
-  return g;
+  return (fn_t)g;
 }
 
-fn_t lambda_compose(fn_t h, fn_t f, fn_t g) {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-  void *p = (void *)h;
-#pragma GCC diagnostic pop
+fn_t lambda_compose(void *h, fn_t f, fn_t g) {
+  void *p = h;
 
 #if LAMBDA_USE_MPROTECT
   long pagemask = ~(sysconf(_SC_PAGESIZE) - 1);
@@ -300,16 +286,13 @@ fn_t lambda_compose(fn_t h, fn_t f, fn_t g) {
     }, 27);
 #endif
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-  __builtin___clear_cache((void *)h, (char *)h + LAMBDA_COMPOSE_SIZE);
-#pragma GCC diagnostic pop
+  __builtin___clear_cache(h, (char *)h + LAMBDA_COMPOSE_SIZE);
 
 #if LAMBDA_USE_MPROTECT
   if (mprotect((void *)((uintptr_t)h & pagemask), LAMBDA_COMPOSE_SIZE, PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
-  return h;
+  return (fn_t)h;
 }
 
 #endif

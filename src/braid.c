@@ -23,7 +23,7 @@ struct cord {
   usize   val;
   char   *name;
   arena_t arena;
-  fn_t    lambdas[3];
+  void   *lambdas[3];
   uchar   flags;
 };
 
@@ -83,7 +83,7 @@ static inline void corddel(braid_t b, cord_t c) {
   free(c);
 }
 
-static inline void cordinfo(cord_t c, char state) {
+static inline void cordinfo(const cord_t c, char state) {
   unsigned int i = 3;
   char buf[30] = {(c->flags & CORD_SYSTEM) ? 'S' : ' ', state, ' '};
   if (c->name) {
@@ -97,7 +97,7 @@ static inline void cordinfo(cord_t c, char state) {
   write(2, buf, i);
 }
 
-void braidinfo(braid_t b) {
+void braidinfo(const braid_t b) {
   cord_t c;
 
   cordinfo(b->running, 'R');
@@ -126,18 +126,23 @@ braid_t braidinit(void) {
   return b;
 }
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
 cord_t braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, ...) {
+#pragma GCC diagnostic pop
   cord_t c;
   va_list args;
 
   if ((c = alloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: alloc");
   va_start(args, nargs);
+  for (int i = 0; i < 3; i++)
+    if (!(*(void **)&c->lambdas[i] = pool_alloc(b->lambda_pool))) err(EX_OSERR, "braidadd: pool_alloc");
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-  c->ctx = ctxcreate(
-      lambda_compose(c->lambdas[0] = pool_alloc(b->lambda_pool),
-        lambda_bindldr(c->lambdas[1] = pool_alloc(b->lambda_pool), braidexit, 0, 1, b),
-        lambda_vbindldr(c->lambdas[2] = pool_alloc(b->lambda_pool), f, 1, nargs, args)),
+#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
+  c->ctx = ctxcreate((void (*)(usize))
+      lambda_compose(c->lambdas[0],
+        lambda_bindldr(c->lambdas[1], (fn_t)braidexit, 0, 1, b),
+        lambda_vbindldr(c->lambdas[2], (fn_t)f, 1, nargs, args)),
       stacksize, (usize)b);
 #pragma GCC diagnostic pop
   va_end(args);
@@ -160,8 +165,7 @@ static void segvhandler(int sig, siginfo_t *info, void *uap, braid_t b) {
 
 
 void braidstart(braid_t b) {
-  void *mem;
-  void (*h1)(), (*h2)();
+  void *h1, *h2;
   stack_t ss, oss;
   struct sigaction sa = {0}, osa;
   cord_t c;
@@ -169,22 +173,22 @@ void braidstart(braid_t b) {
   b->sched = ctxempty();
 
   /* install signal handlers */
-  if ((mem = mmap(NULL, LAMBDA_BIND_SIZE(0,1,0) + LAMBDA_BIND_SIZE(0,1,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
+  if ((h1 = mmap(NULL, LAMBDA_BIND_SIZE(0,1,0) + LAMBDA_BIND_SIZE(0,1,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "mmap");
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-  h1 = (fn_t)mem;
-  h2 = (fn_t)((char *)mem + LAMBDA_BIND_SIZE(0,1,0));
-#pragma GCC diagnostic pop
+  h2 = ((char *)h1 + LAMBDA_BIND_SIZE(0,1,0));
   if (!(ss.ss_sp = braidmalloc(b, SIGSTKSZ))) err(EX_OSERR, "alloc sigstack");
   ss.ss_size = SIGSTKSZ;
   ss.ss_flags = 0;
   if (sigaltstack(&ss, NULL)) err(EX_OSERR, "sigaltstack");
   sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
-  sa.sa_sigaction = lambda_bind(h1, segvhandler, 4, MOV(0), MOV(1), MOV(2), LDR((usize)b));
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
+  sa.sa_sigaction = (void (*)(int, struct __siginfo *, void *))lambda_bindldr(h1, (fn_t)segvhandler, 3, 1, b);
+  signal(SIGQUIT, (void (*)(int))lambda_bindldr(h2, (fn_t)braidinfo, 0, 1, b));
+#pragma GCC diagnostic pop
   sigemptyset(&sa.sa_mask);
   foreachsig(sig, if (sigaction(sig, &sa, NULL)) err(EX_OSERR, "sigaction");)
-  signal(SIGQUIT, lambda_bind(h2, braidinfo, 1, LDR((usize)b)));
 
   for (;;) {
     while ((c = b->zombies)) {
@@ -214,8 +218,8 @@ void braidstart(braid_t b) {
       sigaction(sig, &nsa, NULL);
     }
   )
-  if (!sigaction(SIGQUIT, NULL, &osa) && (osa.sa_handler == h2)) signal(SIGQUIT, SIG_DFL);
-  munmap(mem, LAMBDA_BIND_SIZE(0,1,0));
+  if (!sigaction(SIGQUIT, NULL, &osa) && ((void *)osa.sa_handler == h2)) signal(SIGQUIT, SIG_DFL);
+  munmap(h1, LAMBDA_BIND_SIZE(0,1,0));
 
   while ((c = b->cords.head)) {
     b->cords.head = c->next;
@@ -283,9 +287,9 @@ void braidexit(braid_t b) {
   ctxswap(dummy_ctx, b->sched);
 }
 
-cord_t braidcurr(braid_t b) { return b->running; }
-uint braidcnt(braid_t b) { return b->cords.count; }
-uint braidsys(braid_t b) { return b->cords.sys; }
+cord_t braidcurr(const braid_t b) { return b->running; }
+uint braidcnt(const braid_t b) { return b->cords.count; }
+uint braidsys(const braid_t b) { return b->cords.sys; }
 
 void **braiddata(braid_t b, uchar key) {
   struct data *d;
