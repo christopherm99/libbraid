@@ -40,6 +40,7 @@ void pool_free(pool_t p, void *ptr);
 
 #ifdef POOL_IMPLEMENTATION
 #include <stdint.h>
+#include <unistd.h>
 typedef uintptr_t usize;
 struct pool {
   int len, chunk_sz;
@@ -86,7 +87,7 @@ void pool_free(pool_t p, void *ptr) {
   if ((char *)ptr + p->chunk_sz == p->wilderness) p->wilderness -= p->chunk_sz;
   else {
 #if POOL_USE_MPROTECT
-    uintptr_t ptr_page = (uintptr_t)ptr & ~0xFFF;
+    uintptr_t ptr_page = (uintptr_t)ptr & ~(sysconf(_SC_PAGESIZE) - 1);
     mprotect((void *)ptr_page, (uintptr_t)ptr - ptr_page + sizeof(struct pool), PROT_READ | PROT_WRITE);
 #endif
     *(void **)ptr = p->free;

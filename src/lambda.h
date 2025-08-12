@@ -81,6 +81,7 @@ fn_t lambda_compose(fn_t h, fn_t f, fn_t g);
 #ifdef LAMBDA_IMPLEMENTATION
 
 #include <string.h>
+#include <unistd.h>
 #ifdef LAMBDA_USE_MPROTECT
 #include <sys/mman.h>
 #endif
@@ -144,6 +145,9 @@ uintptr_t (*lambda_vbind(uintptr_t (*g)(), uintptr_t (*f)(), int n, va_list args
   int n_ldr = 0, n_mov = 0, msrc[LAMBDA_BIND_MAX_ARGS] = {0}, mdst[LAMBDA_BIND_MAX_ARGS] = {0}, ldst[LAMBDA_BIND_MAX_ARGS] = {0};
   uintptr_t lsrc[LAMBDA_BIND_MAX_ARGS] = {0};
   char status[LAMBDA_BIND_MAX_ARGS] = { 0 };
+#if LAMBDA_USE_MPROTECT
+  long pagemask = ~(sysconf(_SC_PAGESIZE) - 1);
+#endif
 
   for (int i = 0; i < n; i++) {
     arg_t arg = va_arg(args, arg_t);
@@ -158,7 +162,7 @@ uintptr_t (*lambda_vbind(uintptr_t (*g)(), uintptr_t (*f)(), int n, va_list args
   }
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)g & ~0xFFF), LAMBDA_BIND_MAX_SIZE(n), PROT_READ | PROT_WRITE)) return NULL;
+  if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_MAX_SIZE(n), PROT_READ | PROT_WRITE)) return NULL;
 #endif
 
   for (int i = 0; i < n_mov; i++)
@@ -188,11 +192,11 @@ uintptr_t (*lambda_vbind(uintptr_t (*g)(), uintptr_t (*f)(), int n, va_list args
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
-  __builtin___clear_cache(g, (char *)g + LAMBDA_COMPOSE_SIZE);
+  __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_MAX_SIZE(n));
 #pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)g & ~0xFFF), LAMBDA_BIND_MAX_SIZE(n), PROT_READ | PROT_EXEC)) return NULL;
+  if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_MAX_SIZE(n), PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
   return g;
@@ -213,12 +217,15 @@ uintptr_t (*lambda_vbindldr(uintptr_t (*g)(), uintptr_t (*f)(), int start, int n
   void *p = (void *)g;
 #pragma GCC diagnostic pop
   uintptr_t args[LAMBDA_BIND_MAX_ARGS] = {0};
+#if LAMBDA_USE_MPROTECT
+  long pagemask = ~(sysconf(_SC_PAGESIZE) - 1);
+#endif
 
   for (int i = 0; i < n; i++)
     args[i] = va_arg(_args, uintptr_t);
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)g & ~0xFFF), LAMBDA_BIND_SIZE(0,n,0), PROT_READ | PROT_WRITE)) return NULL;
+  if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_SIZE(0,n,0), PROT_READ | PROT_WRITE)) return NULL;
 #endif
 
   {
@@ -245,11 +252,11 @@ uintptr_t (*lambda_vbindldr(uintptr_t (*g)(), uintptr_t (*f)(), int start, int n
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
-  __builtin___clear_cache(g, (char *)g + LAMBDA_COMPOSE_SIZE);
+  __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_SIZE(0,n,0));
 #pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)g & ~0xFFF), LAMBDA_BIND_SIZE(0,n,0), PROT_READ | PROT_EXEC)) return NULL;
+  if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_SIZE(0,n,0), PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
   return g;
@@ -262,7 +269,8 @@ fn_t lambda_compose(fn_t h, fn_t f, fn_t g) {
 #pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)h & ~0xFFF), LAMBDA_COMPOSE_SIZE, PROT_READ | PROT_WRITE)) return NULL;
+  long pagemask = ~(sysconf(_SC_PAGESIZE) - 1);
+  if (mprotect((void *)((uintptr_t)h & pagemask), LAMBDA_COMPOSE_SIZE, PROT_READ | PROT_WRITE)) return NULL;
 #endif
 
 #ifdef __aarch64__
@@ -295,7 +303,7 @@ fn_t lambda_compose(fn_t h, fn_t f, fn_t g) {
 #pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)h & ~0xFFF), LAMBDA_COMPOSE_SIZE, PROT_READ | PROT_EXEC)) return NULL;
+  if (mprotect((void *)((uintptr_t)h & pagemask), LAMBDA_COMPOSE_SIZE, PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
   return h;
