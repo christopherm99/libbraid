@@ -23,6 +23,7 @@ struct cord {
   usize   val;
   char   *name;
   arena_t arena;
+  fn_t    lambdas[3];
   uchar   flags;
 };
 
@@ -74,9 +75,11 @@ static void braidappend(braid_t b, cord_t c) {
   b->cords.tail = c;
 }
 
-static inline void corddel(cord_t c) {
+static inline void corddel(braid_t b, cord_t c) {
   ctxdel(c->ctx);
   arena_destroy(c->arena);
+  for (usize i = 0; i < sizeof(c->lambdas) / sizeof(*c->lambdas); i++)
+    if (c->lambdas[i]) pool_free(b->lambda_pool, (void *)c->lambdas[i]);
   free(c);
 }
 
@@ -132,9 +135,9 @@ cord_t braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
   c->ctx = ctxcreate(
-      lambda_compose((fn_t)pool_alloc(b->lambda_pool),
-        lambda_bindldr((fn_t)pool_alloc(b->lambda_pool), braidexit, 0, 1, b),
-        lambda_vbindldr((fn_t)pool_alloc(b->lambda_pool), f, 1, nargs, args)),
+      lambda_compose(c->lambdas[0] = pool_alloc(b->lambda_pool),
+        lambda_bindldr(c->lambdas[1] = pool_alloc(b->lambda_pool), braidexit, 0, 1, b),
+        lambda_vbindldr(c->lambdas[2] = pool_alloc(b->lambda_pool), f, 1, nargs, args)),
       stacksize, (usize)b);
 #pragma GCC diagnostic pop
   va_end(args);
@@ -186,7 +189,7 @@ void braidstart(braid_t b) {
   for (;;) {
     while ((c = b->zombies)) {
       b->zombies = c->next;
-      corddel(c);
+      corddel(b, c);
     }
     if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
       b->running = c;
@@ -216,12 +219,12 @@ void braidstart(braid_t b) {
 
   while ((c = b->cords.head)) {
     b->cords.head = c->next;
-    corddel(c);
+    corddel(b, c);
   }
 
   while ((c = b->blocked.head)) {
     b->blocked.head = c->next;
-    corddel(c);
+    corddel(b, c);
   }
 
   arena_destroy(b->arena);

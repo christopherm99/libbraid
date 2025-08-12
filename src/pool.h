@@ -91,10 +91,10 @@ void pool_free(pool_t p, void *ptr) {
     mprotect((void *)ptr_page, (uintptr_t)ptr - ptr_page + sizeof(struct pool), PROT_READ | PROT_WRITE);
 #endif
     *(void **)ptr = p->free;
+    p->free = ptr;
 #if POOL_USE_MPROTECT
     mprotect((void *)ptr_page, (uintptr_t)ptr - ptr_page + sizeof(struct pool), POOL_MPROTECT_RESTORE);
 #endif
-    p->free = ptr;
   }
 #if POOL_USE_MPROTECT
   mprotect(p, sizeof(struct pool), POOL_MPROTECT_RESTORE);
