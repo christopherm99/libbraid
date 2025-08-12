@@ -301,8 +301,6 @@ void **braiddata(braid_t b, uchar key) {
   return &d->data;
 }
 
-usize *cordarg(cord_t c) { return &c->val; }
-
 void cordhalt(braid_t b, cord_t c) {
   if (c->prev) c->prev->next = c->next;
   if (c->next) c->next->prev = c->prev;

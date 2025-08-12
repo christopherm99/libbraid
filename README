@@ -136,10 +136,6 @@ USAGE
 
             Prints the state of all the cords in the braid `b` to stdout.
 
-    usize  *cordarg(cord_t c);
-
-            Returns a pointer to the arguments for the cord `c`.
-
     void    cordhalt(braid_t b, cord_t c);
 
             Halts the cord `c` in the braid `b`. The cord cannot be rescheduled.
