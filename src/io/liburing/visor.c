@@ -6,7 +6,7 @@
 #include <liburing.h>
 #include <sysexits.h>
 
-#define IMM &(struct timespec){0}
+#define IMM &(struct __kernel_timespec){0}
 #define INF 0
 
 struct ioctx {
@@ -18,7 +18,7 @@ struct ioctx {
 
 static struct ioctx *getctx(braid_t b) {
   struct ioctx **ctx;
-  if (!*(ctx = braiddata(b, BRAID_IO_KEY))) {
+  if (!*(ctx = (struct ioctx **)braiddata(b, BRAID_IO_KEY))) {
     /* TODO: this should be in the cord's lifetime */
     if (!(*ctx = braidzalloc(b, sizeof(struct ioctx)))) err(EX_OSERR, "iovisor: alloc");
     /* FIXME: choose a reasonable value for entries */

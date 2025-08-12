@@ -94,7 +94,7 @@ static inline void cordinfo(const cord_t c, char state) {
     i += 8;
   }
   buf[i++] = '\n';
-  write(2, buf, i);
+  if (write(2, buf, i) != i) abort();
 }
 
 void braidinfo(const braid_t b) {
@@ -138,7 +138,7 @@ cord_t braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar
   for (int i = 0; i < 3; i++)
     if (!(*(void **)&c->lambdas[i] = pool_alloc(b->lambda_pool))) err(EX_OSERR, "braidadd: pool_alloc");
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
+#pragma GCC diagnostic ignored "-Wcast-function-type"
   c->ctx = ctxcreate((void (*)(usize))
       lambda_compose(c->lambdas[0],
         lambda_bindldr(c->lambdas[1], (fn_t)braidexit, 0, 1, b),
@@ -157,7 +157,7 @@ cord_t braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar
 static void segvhandler(int sig, siginfo_t *info, void *uap, braid_t b) {
   usize guardpage = (usize)ctxstack(b->running->ctx);
   if (((usize)info->si_addr >= guardpage) && ((usize)info->si_addr < guardpage + sysconf(_SC_PAGESIZE)))
-    write(2, "stack overflow\n", 15);
+    if (write(2, "stack overflow\n", 15) != 15) abort();
   braidinfo(b);
   abort();
   (void)uap, (void)sig;
@@ -183,8 +183,8 @@ void braidstart(braid_t b) {
   sa.sa_flags = SA_ONSTACK | SA_SIGINFO;
 
 #pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type-mismatch"
-  sa.sa_sigaction = (void (*)(int, struct __siginfo *, void *))lambda_bindldr(h1, (fn_t)segvhandler, 3, 1, b);
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+  sa.sa_sigaction = (void (*)(int, siginfo_t *, void *))lambda_bindldr(h1, (fn_t)segvhandler, 3, 1, b);
   signal(SIGQUIT, (void (*)(int))lambda_bindldr(h2, (fn_t)braidinfo, 0, 1, b));
 #pragma GCC diagnostic pop
   sigemptyset(&sa.sa_mask);
@@ -218,7 +218,7 @@ void braidstart(braid_t b) {
       sigaction(sig, &nsa, NULL);
     }
   )
-  if (!sigaction(SIGQUIT, NULL, &osa) && ((void *)osa.sa_handler == h2)) signal(SIGQUIT, SIG_DFL);
+  if (!sigaction(SIGQUIT, NULL, &osa) && ((usize)osa.sa_handler == (usize)h2)) signal(SIGQUIT, SIG_DFL);
   munmap(h1, LAMBDA_BIND_SIZE(0,1,0));
 
   while ((c = b->cords.head)) {

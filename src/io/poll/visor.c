@@ -18,7 +18,7 @@ struct ioctx {
 
 static struct ioctx *getctx(braid_t b) {
   struct ioctx **ctx;
-  if (!*(ctx = braiddata(b, BRAID_IO_KEY)))
+  if (!*(ctx = (struct ioctx **)braiddata(b, BRAID_IO_KEY)))
     /* TODO: this should be in the cord's lifetime */
     if (!(*ctx = braidzalloc(b, sizeof(struct ioctx)))) err(EX_OSERR, "iovisor: alloc");
   return *ctx;

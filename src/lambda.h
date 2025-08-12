@@ -142,6 +142,7 @@ fn_t lambda_bind(void *g, fn_t f, int n, ...) {
 }
 
 fn_t lambda_vbind(void *g, fn_t f, int n, va_list args) {
+  fn_t ret;
   void *p = g;
   int n_ldr = 0, n_mov = 0, msrc[LAMBDA_BIND_MAX_ARGS] = {0}, mdst[LAMBDA_BIND_MAX_ARGS] = {0}, ldst[LAMBDA_BIND_MAX_ARGS] = {0};
   uintptr_t lsrc[LAMBDA_BIND_MAX_ARGS] = {0};
@@ -197,7 +198,8 @@ fn_t lambda_vbind(void *g, fn_t f, int n, va_list args) {
   if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_MAX_SIZE(n), PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
-  return (fn_t)g;
+  *(void **)&ret = g;
+  return ret;
 }
 
 fn_t lambda_bindldr(void *g, fn_t f, int start, int n, ...) {
@@ -210,6 +212,7 @@ fn_t lambda_bindldr(void *g, fn_t f, int start, int n, ...) {
 }
 
 fn_t lambda_vbindldr(void *g, fn_t f, int start, int n, va_list _args) {
+  fn_t ret;
   void *p = g;
   uintptr_t args[LAMBDA_BIND_MAX_ARGS] = {0};
 #if LAMBDA_USE_MPROTECT
@@ -251,10 +254,12 @@ fn_t lambda_vbindldr(void *g, fn_t f, int start, int n, va_list _args) {
   if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_SIZE(0,n,0), PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
-  return (fn_t)g;
+  *(void **)&ret = g;
+  return ret;
 }
 
 fn_t lambda_compose(void *h, fn_t f, fn_t g) {
+  fn_t ret;
   void *p = h;
 
 #if LAMBDA_USE_MPROTECT
@@ -292,7 +297,8 @@ fn_t lambda_compose(void *h, fn_t f, fn_t g) {
   if (mprotect((void *)((uintptr_t)h & pagemask), LAMBDA_COMPOSE_SIZE, PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
-  return (fn_t)h;
+  *(void **)&ret = h;
+  return ret;
 }
 
 #endif
