@@ -32,7 +32,7 @@ typedef struct pool * pool_t;
 // configures a region of memory to work as a memory pool
 pool_t pool_new(void *mem, int len, int chunk_sz);
 // returns a pointer to a chunk of memory of size POOL_CHUNK_SIZE
-void *pool_alloc(pool_t p);
+void *pool_alloc(pool_t p) __attribute__((malloc));
 // frees a chunk of memory previously allocated by pool_alloc
 void pool_free(pool_t p, void *ptr);
 
@@ -42,18 +42,19 @@ void pool_free(pool_t p, void *ptr);
 #include <stdint.h>
 #include <unistd.h>
 typedef uintptr_t usize;
+typedef unsigned char uchar;
 struct pool {
   int len, chunk_sz;
-  char *wilderness;
+  uchar *wilderness;
   void *free;
-  unsigned char data[];
+  uchar data[];
 };
 
 pool_t pool_new(void *mem, int len, int chunk_sz) {
   pool_t p = mem;
   p->len = len;
   p->chunk_sz = chunk_sz;
-  p->wilderness = &p->data;
+  p->wilderness = (uchar *)&p->data;
   p->free = 0;
   return p;
 }
@@ -73,7 +74,7 @@ void *pool_alloc(pool_t p) {
   if ((usize)p->wilderness + p->chunk_sz > (usize)p + p->len) return 0;
 
   ret = p->wilderness;
-  p->wilderness = (char *)p->wilderness + p->chunk_sz;
+  p->wilderness = p->wilderness + p->chunk_sz;
 #if POOL_USE_MPROTECT
   if (mprotect(p, sizeof(struct pool), POOL_MPROTECT_RESTORE)) return 0;
 #endif
@@ -84,7 +85,7 @@ void pool_free(pool_t p, void *ptr) {
 #if POOL_USE_MPROTECT
   mprotect(p, sizeof(struct pool), PROT_READ | PROT_WRITE);
 #endif
-  if ((char *)ptr + p->chunk_sz == p->wilderness) p->wilderness -= p->chunk_sz;
+  if ((uchar *)ptr + p->chunk_sz == p->wilderness) p->wilderness -= p->chunk_sz;
   else {
 #if POOL_USE_MPROTECT
     uintptr_t ptr_page = (uintptr_t)ptr & ~(sysconf(_SC_PAGESIZE) - 1);

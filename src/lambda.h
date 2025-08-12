@@ -1,6 +1,8 @@
 /* lambda.h - v0.2
  * Functional programming for C
  *
+ * Requires compiling with -Wno-strict-prototypes
+ *
  * Copyright (c) 2025 Christopher Milan
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -49,23 +51,17 @@ typedef struct {
 #error "unsupported architecture"
 #endif
 
-// creates a new function g from a function f, number of arguments n, and
+// Creates a new function g from a function f, number of arguments n, and
 // variadic arguments specified using the LDR and MOV macros. Arguments using
 // LDR will inserted at the corresponding argument index, whereas arguments
 // using MOV will move the data stored at g's argument index to the
 // corresponding destination index. The maximum required size is given by
-// LAMBDA_MAX(n) and the exact size can be computed with
+// LAMBDA_BIND_MAX_SIZE(n) and the exact size can be computed with
 // LAMBDA_BIND_SIZE(movs, ldrs, cycles), where cycles is the total number of
 // disjoint cycles in the mov operations. The maximum value for n is given by
 // LAMBDA_BIND_MAX_ARGS.
 fn_t lambda_bind(fn_t g, fn_t f, int n, ...);
 fn_t lambda_vbind(fn_t g, fn_t f, int n, va_list args);
-
-#ifdef __aarch64__
-#define LAMBDA_COMPOSE_SIZE 40
-#elif defined(__x86_64__)
-#define LAMBDA_COMPOSE_SIZE 27
-#endif
 
 // the same as lambda_bind, but all arguments are automatically interpreted as
 // LDR, without requiring the wrapper macro. Start specifies the destination
@@ -74,7 +70,14 @@ fn_t lambda_vbind(fn_t g, fn_t f, int n, va_list args);
 fn_t lambda_bindldr(fn_t g, fn_t f, int start, int n, ...);
 fn_t lambda_vbindldr(fn_t g, fn_t f, int start, int n, va_list args);
 
-// h := f \circ g
+#ifdef __aarch64__
+#define LAMBDA_COMPOSE_SIZE 40
+#elif defined(__x86_64__)
+#define LAMBDA_COMPOSE_SIZE 27
+#endif
+
+// Creates a new function h from the functions f and g by composing f with g,
+// ie. h(x) = f(g(x)). The required size for h is given by LAMBDA_COMPOSE_SIZE.
 fn_t lambda_compose(fn_t h, fn_t f, fn_t g);
 
 #endif
@@ -192,7 +195,7 @@ uintptr_t (*lambda_vbind(uintptr_t (*g)(), uintptr_t (*f)(), int n, va_list args
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
-  __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_MAX_SIZE(n));
+  __builtin___clear_cache((void *)g, (char *)g + LAMBDA_BIND_MAX_SIZE(n));
 #pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT
@@ -252,7 +255,7 @@ uintptr_t (*lambda_vbindldr(uintptr_t (*g)(), uintptr_t (*f)(), int start, int n
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
-  __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_SIZE(0,n,0));
+  __builtin___clear_cache((void *)g, (char *)g + LAMBDA_BIND_SIZE(0,n,0));
 #pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT
@@ -299,7 +302,7 @@ fn_t lambda_compose(fn_t h, fn_t f, fn_t g) {
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
-  __builtin___clear_cache(h, (char *)h + LAMBDA_COMPOSE_SIZE);
+  __builtin___clear_cache((void *)h, (char *)h + LAMBDA_COMPOSE_SIZE);
 #pragma GCC diagnostic pop
 
 #if LAMBDA_USE_MPROTECT

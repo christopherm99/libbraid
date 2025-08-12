@@ -30,14 +30,14 @@
 
 typedef struct arena * arena_t;
 
-arena_t arena_create(void);
+arena_t arena_create(void) __attribute__((malloc));
 void    arena_destroy(arena_t a);
-void   *arena_malloc(arena_t a, size_t n);
-void   *arena_zalloc(arena_t a, size_t n);
-void   *arena_realloc(arena_t a, void *p, size_t n);
+void   *arena_malloc(arena_t a, size_t n) __attribute__((malloc, alloc_size(2)));
+void   *arena_zalloc(arena_t a, size_t n) __attribute__((malloc, alloc_size(2)));
+void   *arena_realloc(arena_t a, void *p, size_t n) __attribute__((alloc_size(3)));
 void    arena_free(arena_t a, void *p);
 
-char *arena_strdup(arena_t a, const char *s);
+char   *arena_strdup(arena_t a, const char *s) __attribute__((malloc));
 
 #endif
 #ifdef ARENA_IMPLEMENTATION
