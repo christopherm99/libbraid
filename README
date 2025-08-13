@@ -68,9 +68,10 @@ USAGE
 
             Adds a new cord to the braid with entry point `f` and stack size
             `stacksize`. The cord will be scheduled cooperatively with other
-            cords in the braid. The argument `b` will be passed to `f`, along
-            with `nargs` variadic arguments. The `name` argument is nullable.
-            The `flags` arguement sets the type of cord that is being created:
+            cords in the braid. `nargs` variadic arguments will be passed to
+            `f`, unless `nargs` is 0, in which case just `b` will be passed.
+            The `name` argument is nullable. The `flags` arguement sets the
+            type of cord that is being created:
 
               * CORD_NORMAL: a normal cord.
               * CORD_SYSTEM: ignored when deciding the braid size.
