@@ -148,7 +148,7 @@ fn_t lambda_vbind(void *g, fn_t f, int n, va_list args) {
   uintptr_t lsrc[LAMBDA_BIND_MAX_ARGS] = {0};
   char status[LAMBDA_BIND_MAX_ARGS] = { 0 };
 #if LAMBDA_USE_MPROTECT
-  long pagemask = ~(sysconf(_SC_PAGESIZE) - 1);
+  uintptr_t page = (uintptr_t)g & ~(sysconf(_SC_PAGESIZE) - 1), len = (uintptr_t)g + LAMBDA_BIND_MAX_SIZE(n) - page;
 #endif
 
   for (int i = 0; i < n; i++) {
@@ -164,7 +164,7 @@ fn_t lambda_vbind(void *g, fn_t f, int n, va_list args) {
   }
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_MAX_SIZE(n), PROT_READ | PROT_WRITE)) return NULL;
+  if (mprotect((void *)page, len, PROT_READ | PROT_WRITE)) return NULL;
 #endif
 
   for (int i = 0; i < n_mov; i++)
@@ -195,7 +195,7 @@ fn_t lambda_vbind(void *g, fn_t f, int n, va_list args) {
   __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_MAX_SIZE(n));
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_MAX_SIZE(n), PROT_READ | PROT_EXEC)) return NULL;
+  if (mprotect((void *)page, len, PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
   *(void **)&ret = g;
@@ -216,14 +216,14 @@ fn_t lambda_vbindldr(void *g, fn_t f, int start, int n, va_list _args) {
   void *p = g;
   uintptr_t args[LAMBDA_BIND_MAX_ARGS] = {0};
 #if LAMBDA_USE_MPROTECT
-  long pagemask = ~(sysconf(_SC_PAGESIZE) - 1);
+  uintptr_t page = (uintptr_t)g & ~(sysconf(_SC_PAGESIZE) - 1), len = (uintptr_t)g + LAMBDA_BIND_SIZE(0,n,0) - page;
 #endif
 
   for (int i = 0; i < n; i++)
     args[i] = va_arg(_args, uintptr_t);
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_SIZE(0,n,0), PROT_READ | PROT_WRITE)) return NULL;
+  if (mprotect((void *)page, len, PROT_READ | PROT_WRITE)) return NULL;
 #endif
 
   {
@@ -251,7 +251,7 @@ fn_t lambda_vbindldr(void *g, fn_t f, int start, int n, va_list _args) {
   __builtin___clear_cache(g, (char *)g + LAMBDA_BIND_SIZE(0,n,0));
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)g & pagemask), LAMBDA_BIND_SIZE(0,n,0), PROT_READ | PROT_EXEC)) return NULL;
+  if (mprotect((void *)page, len, PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
   *(void **)&ret = g;
@@ -263,8 +263,9 @@ fn_t lambda_compose(void *h, fn_t f, fn_t g) {
   void *p = h;
 
 #if LAMBDA_USE_MPROTECT
-  long pagemask = ~(sysconf(_SC_PAGESIZE) - 1);
-  if (mprotect((void *)((uintptr_t)h & pagemask), LAMBDA_COMPOSE_SIZE, PROT_READ | PROT_WRITE)) return NULL;
+  uintptr_t page = (uintptr_t)h & ~(sysconf(_SC_PAGESIZE) - 1), len = (uintptr_t)h + LAMBDA_COMPOSE_SIZE - page;
+
+  if (mprotect((void *)page, len, PROT_READ | PROT_WRITE)) return NULL;
 #endif
 
 #ifdef __aarch64__
@@ -294,7 +295,7 @@ fn_t lambda_compose(void *h, fn_t f, fn_t g) {
   __builtin___clear_cache(h, (char *)h + LAMBDA_COMPOSE_SIZE);
 
 #if LAMBDA_USE_MPROTECT
-  if (mprotect((void *)((uintptr_t)h & pagemask), LAMBDA_COMPOSE_SIZE, PROT_READ | PROT_EXEC)) return NULL;
+  if (mprotect((void *)page, len, PROT_READ | PROT_EXEC)) return NULL;
 #endif
 
   *(void **)&ret = h;
