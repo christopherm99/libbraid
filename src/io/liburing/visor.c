@@ -30,7 +30,11 @@ static struct ioctx *getctx(braid_t b) {
 
 struct io_uring_sqe *get_sqe(braid_t b) {
   struct ioctx *ctx = getctx(b);
-  struct io_uring_sqe *sqe = io_uring_get_sqe(&ctx->ring);
+  struct io_uring_sqe *sqe;
+  if (!(sqe = io_uring_get_sqe(&ctx->ring))) {
+    io_uring_submit(&ctx->ring);
+    sqe = io_uring_get_sqe(&ctx->ring);
+  }
   io_uring_sqe_set_data(sqe, braidcurr(b));
   ctx->cnt++;
   if (ctx->is_blocked) { braidunblock(b, ctx->cord, 0); ctx->is_blocked = 0; }
