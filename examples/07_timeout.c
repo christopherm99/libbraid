@@ -3,6 +3,7 @@
  * This file demonstrates the timeout api.
  */
 #pragma GCC diagnostic ignored "-Wcast-function-type"
+#pragma GCC diagnostic ignored "-Wunused-result"
 
 #include <braid.h>
 #include <braid/ck.h>
