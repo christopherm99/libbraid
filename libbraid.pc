@@ -4,7 +4,7 @@ includedir=${prefix}/include
 
 Name: libbraid
 Version: 0.1
-Description: simple ANSI C coroutines
+Description: simple C99 coroutines
 
 Libs: -L${libdir} -lbraid @PRIVATE_LIBS@
 Cflags: -I${includedir}
