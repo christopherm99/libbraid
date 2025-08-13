@@ -59,7 +59,7 @@ USAGE
 
     braid_t braidinit(void);
 
-            Creates a new, uninitialized braid.
+            Creates a new braid.
 
     cord_t  braidadd(braid_t b, void (*f)(), usize stacksize, const char *name,
                      uchar flags, int nargs, ...);
