@@ -12,7 +12,7 @@ void bar(braid_t b, cord_t c) {
 }
 
 void foo(braid_t b) {
-  braidadd(b, bar, 65536, "bar", CORD_NORMAL, 1, (usize)braidcurr(b));
+  braidadd(b, bar, 65536, "bar", CORD_NORMAL, 2, b, (usize)braidcurr(b));
   braidyield(b);
   puts("i will never print!");
 }

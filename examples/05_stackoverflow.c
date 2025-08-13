@@ -7,7 +7,7 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winfinite-recursion"
-void fn(braid_t b) { fn(b); }
+void fn(void) { fn(); }
 #pragma GCC diagnostic pop
 
 int main(void) {

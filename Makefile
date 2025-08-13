@@ -4,7 +4,7 @@ SRCS := $(wildcard src/*.c) $(wildcard src/io/*.c) $(wildcard src/io/$(BACKEND)/
 OBJS := $(SRCS:src/%.c=build/%.o)
 $(shell mkdir -p build)
 
-CFLAGS := -Wall -Wextra -Werror -pedantic -std=c99 -g -O2 -Iinclude
+CFLAGS := -Wall -Wextra -Werror -pedantic -std=c99 -g -Iinclude -fsanitize=address
 MACHINE := $(shell uname -m)
 
 .PHONY: all clean examples

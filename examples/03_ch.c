@@ -18,7 +18,7 @@ void prime(braid_t b, ch_t c) {
   if ((p = chrecv(b, c)) > goal) braidstop(b);
 
   printf("%d\n", p);
-  braidadd(b, prime, 65536, "prime", CORD_NORMAL, 1, nc = chcreate());
+  braidadd(b, prime, 65536, "prime", CORD_NORMAL, 2, b, nc = chcreate());
 
   for (;;) if ((i = chrecv(b, c)) % p) chsend(b, nc, i);
 }
@@ -32,8 +32,8 @@ int main(void) {
   ch_t c = chcreate();
 
   braidadd(b, iovisor, 65536, "iovisor", CORD_SYSTEM, 0);
-  braidadd(b, prime, 65536, "prime", CORD_NORMAL, 1, c);
-  braidadd(b, start, 65536, "start", CORD_NORMAL, 1, c);
+  braidadd(b, prime, 65536, "prime", CORD_NORMAL, 2, b, c);
+  braidadd(b, start, 65536, "start", CORD_NORMAL, 2, b, c);
   braidstart(b);
 
   return 0;

@@ -26,8 +26,8 @@ void bar(braid_t b, usize arg) {
 
 int main(void) {
   braid_t b = braidinit();
-  braidadd(b, foo, 65536, "foo", CORD_NORMAL, 1, 1337);
-  braidadd(b, bar, 65536, "bar", CORD_NORMAL, 1, 0xCAFEBABEDEADBEEF);
+  braidadd(b, foo, 65536, "foo", CORD_NORMAL, 2, b, 1337);
+  braidadd(b, bar, 65536, "bar", CORD_NORMAL, 2, b, 0xCAFEBABEDEADBEEF);
   braidstart(b);
   return 0;
 }

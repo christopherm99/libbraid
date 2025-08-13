@@ -44,8 +44,8 @@ int main(void) {
   if (pipe(pipefd) < 0) err(EX_OSERR, "pipe");
 
   braidadd(b, iovisor, 65536, "iovisor", CORD_SYSTEM, 0);
-  braidadd(b, producer, 65536, "producer", CORD_NORMAL, 1, pipefd[1]);
-  braidadd(b, consumer, 65536, "consumer", CORD_NORMAL, 1, pipefd[0]);
+  braidadd(b, producer, 65536, "producer", CORD_NORMAL, 2, b, pipefd[1]);
+  braidadd(b, consumer, 65536, "consumer", CORD_NORMAL, 2, b, pipefd[0]);
 
   braidstart(b);
   return 0;

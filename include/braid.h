@@ -3,6 +3,7 @@
 
 #include <braid/types.h>
 #include <stddef.h>
+#include <stdarg.h>
 
 #define CORD_NORMAL 0x00
 #define CORD_SYSTEM 0x01
@@ -14,6 +15,7 @@ braid_t braidinit(void) __attribute__((malloc));
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-prototypes"
 cord_t  braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, ...) __attribute__((malloc));
+cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, va_list args) __attribute__((malloc));
 #pragma GCC diagnostic pop
 void    braidstart(braid_t b);
 void    braidyield(braid_t b);
@@ -24,6 +26,7 @@ void    braidexit(braid_t b);
 cord_t  braidcurr(const braid_t b) __attribute__((pure));
 uint    braidcnt(const braid_t b) __attribute__((pure));
 uint    braidsys(const braid_t b) __attribute__((pure));
+uint    braidblk(const braid_t b) __attribute__((pure));
 void  **braiddata(braid_t b, uchar key) __attribute__((pure));
 void    braidinfo(const braid_t b);
 

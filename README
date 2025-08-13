@@ -63,6 +63,8 @@ USAGE
 
     cord_t  braidadd(braid_t b, void (*f)(), usize stacksize, const char *name,
                      uchar flags, int nargs, ...);
+    cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name,
+                      uchar flags, int nargs, va_list args)
 
             Adds a new cord to the braid with entry point `f` and stack size
             `stacksize`. The cord will be scheduled cooperatively with other
@@ -121,6 +123,10 @@ USAGE
     uint    braidsys(braid_t b);
 
             Returns the number of scheduled system cords in the braid `b`.
+
+    uint    braidblk(const braid_t b)
+
+            Returns the number of blocked cords in the braid `b`
 
     void  **braiddata(braid_t b, uchar key);
 
@@ -230,4 +236,15 @@ USAGE
 
             Sleeps for the specified amount of time, yielding the current cord
             until the time has passed.
+
+    usize   ckntimeout(braid_t b, usize (*f)(), usize sz, ulong ns, int nargs, ...);
+    usize   ckutimeout(braid_t b, usize (*f)(), usize sz, ulong us, int nargs, ...);
+    usize   ckmtimeout(braid_t b, usize (*f)(), usize sz, ulong ms, int nargs, ...);
+    usize   cktimeout(braid_t b, usize (*f)(), usize sz, ulong s, int nargs, ...);
+    usize   ckntimeoutv(braid_t b, usize (*f)(), usize sz, ulong ns, int nargs, va_list args);
+    usize   ckutimeoutv(braid_t b, usize (*f)(), usize sz, ulong us, int nargs, va_list args);
+    usize   ckmtimeoutv(braid_t b, usize (*f)(), usize sz, ulong ms, int nargs, va_list args);
+    usize   cktimeoutv(braid_t b, usize (*f)(), usize sz, ulong s, int nargs, va_list args);
+
+            Runs the function f, and returns the value returned by f, or if the timer expires, 0.
 

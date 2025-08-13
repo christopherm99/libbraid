@@ -18,9 +18,9 @@ int main(void) {
   braid_t b = braidinit();
 
   braidadd(b, iovisor, 65536, "iovisor", CORD_SYSTEM, 0);
-  braidadd(b, sleeper, 65536, "sleeper1", CORD_NORMAL, 1, 1000000000); // 1 second
-  braidadd(b, sleeper, 65536, "sleeper2", CORD_NORMAL, 1, 500000000); // 0.5 seconds
-  braidadd(b, sleeper, 65536, "sleeper3", CORD_NORMAL, 1, 250000000); // 0.25 seconds
+  braidadd(b, sleeper, 65536, "sleeper1", CORD_NORMAL, 2, b, 1000000000); // 1 second
+  braidadd(b, sleeper, 65536, "sleeper2", CORD_NORMAL, 2, b, 500000000); // 0.5 seconds
+  braidadd(b, sleeper, 65536, "sleeper3", CORD_NORMAL, 2, b, 250000000); // 0.25 seconds
 
   braidstart(b);
 

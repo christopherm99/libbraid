@@ -39,13 +39,8 @@ struct braid {
   struct {
     cord_t head;
     cord_t tail;
-    uint   count;
-    uint   sys;
   } cords;
-  struct {
-    cord_t head;
-    uint   count;
-  } blocked;
+  cord_t blocked;
   cord_t zombies;
   arena_t arena;
   pool_t lambda_pool;
@@ -59,15 +54,11 @@ static cord_t braidpop(braid_t b) {
   b->cords.head = c->next;
   if (b->cords.head) b->cords.head->prev = NULL;
   else b->cords.tail = NULL;
-  if (c->flags & CORD_SYSTEM) b->cords.sys--;
-  else b->cords.count--;
 
   return c;
 }
 
 static void braidappend(braid_t b, cord_t c) {
-  if (c->flags & CORD_SYSTEM) b->cords.sys++;
-  else b->cords.count++;
   c->next = NULL;
   c->prev = b->cords.tail;
   if (b->cords.tail) b->cords.tail->next = c;
@@ -102,7 +93,7 @@ void braidinfo(const braid_t b) {
 
   cordinfo(b->running, 'R');
   for (c = b->cords.head; c; c = c->next) cordinfo(c, 'r');
-  for (c = b->blocked.head; c; c = c->next) cordinfo(c, 'b');
+  for (c = b->blocked; c; c = c->next) cordinfo(c, 'b');
 }
 
 #ifdef __APPLE__
@@ -130,11 +121,21 @@ braid_t braidinit(void) {
 #pragma GCC diagnostic ignored "-Wstrict-prototypes"
 cord_t braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, ...) {
 #pragma GCC diagnostic pop
-  cord_t c;
+  cord_t ret;
   va_list args;
+  va_start(args, nargs);
+  ret = braidvadd(b, f, stacksize, name, flags, nargs, args);
+  va_end(args);
+  return ret;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
+cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, va_list args) {
+#pragma GCC diagnostic pop
+  cord_t c;
 
   if ((c = alloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: alloc");
-  va_start(args, nargs);
   for (int i = 0; i < 3; i++)
     if (!(*(void **)&c->lambdas[i] = pool_alloc(b->lambda_pool))) err(EX_OSERR, "braidadd: pool_alloc");
 #pragma GCC diagnostic push
@@ -142,10 +143,9 @@ cord_t braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar
   c->ctx = ctxcreate((void (*)(usize))
       lambda_compose(c->lambdas[0],
         lambda_bindldr(c->lambdas[1], (fn_t)braidexit, 0, 1, b),
-        lambda_vbindldr(c->lambdas[2], (fn_t)f, 1, nargs, args)),
+        nargs ? lambda_vbindldr(c->lambdas[2], (fn_t)f, 0, nargs, args) : (fn_t)f),
       stacksize, (usize)b);
 #pragma GCC diagnostic pop
-  va_end(args);
   c->flags = flags;
   c->arena = arena_create();
   c->name = arena_strdup(c->arena, name);
@@ -195,7 +195,7 @@ void braidstart(braid_t b) {
       b->zombies = c->next;
       corddel(b, c);
     }
-    if ((b->cords.count + b->blocked.count) && (c = braidpop(b)) != NULL) {
+    if ((braidcnt(b) + braidblk(b)) && (c = braidpop(b)) != NULL) {
       b->running = c;
       ctxswap(b->sched, c->ctx);
     } else {
@@ -226,8 +226,8 @@ void braidstart(braid_t b) {
     corddel(b, c);
   }
 
-  while ((c = b->blocked.head)) {
-    b->blocked.head = c->next;
+  while ((c = b->blocked)) {
+    b->blocked = c->next;
     corddel(b, c);
   }
 
@@ -243,25 +243,23 @@ void braidyield(braid_t b) {
 }
 
 usize braidblock(braid_t b) {
-  b->blocked.count++;
-  if (b->blocked.head) b->blocked.head->prev = b->running;
-  b->running->next = b->blocked.head;
+  if (b->blocked) b->blocked->prev = b->running;
+  b->running->next = b->blocked;
   b->running->prev = NULL;
-  b->blocked.head = b->running;
+  b->blocked = b->running;
   ctxswap(b->running->ctx, b->sched);
   return b->running->val;
 }
 
 int braidunblock(braid_t b, cord_t c, usize val) {
   cord_t curr;
-  b->blocked.count--;
-  for (curr = b->blocked.head; curr; curr = curr->next)
+  for (curr = b->blocked; curr; curr = curr->next)
     if (curr == c) {
       if (curr->prev) {
         curr->prev->next = curr->next;
         if (curr->next) curr->next->prev = curr->prev;
       } else {
-        b->blocked.head = curr->next;
+        b->blocked = curr->next;
         if (curr->next) curr->next->prev = NULL;
       }
       goto found;
@@ -288,8 +286,26 @@ void braidexit(braid_t b) {
 }
 
 cord_t braidcurr(const braid_t b) { return b->running; }
-uint braidcnt(const braid_t b) { return b->cords.count; }
-uint braidsys(const braid_t b) { return b->cords.sys; }
+
+uint braidcnt(const braid_t b) {
+  uint ret = 0;
+  for (cord_t c = b->cords.head; c; c = c->next)
+    if (!(c->flags & CORD_SYSTEM)) ret++;
+  return ret;
+}
+
+uint braidsys(const braid_t b) {
+  uint ret = 0;
+  for (cord_t c = b->cords.head; c; c = c->next)
+    if (c->flags & CORD_SYSTEM) ret++;
+  return ret;
+}
+
+uint braidblk(const braid_t b) {
+  uint ret = 0;
+  for (cord_t c = b->blocked; c; c = c->next) ret++;
+  return ret;
+}
 
 void **braiddata(braid_t b, uchar key) {
   struct data *d;
@@ -310,7 +326,7 @@ void cordhalt(braid_t b, cord_t c) {
   if (c->next) c->next->prev = c->prev;
   if (b->cords.head == c) b->cords.head = c->next;
   if (b->cords.tail == c) b->cords.tail = c->prev;
-  if (b->blocked.head == c) b->blocked.head = c->next;
+  if (b->blocked == c) b->blocked = c->next;
   c->next = b->zombies;
   b->zombies = c;
 }
