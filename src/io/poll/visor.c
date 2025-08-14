@@ -47,7 +47,6 @@ static void poll_remove(braid_t b, cord_t c) {
       return;
     }
   }
-  warnx("poll_remove: cord not found");
 }
 
 void iovisor(braid_t b) {

@@ -52,7 +52,6 @@ static void kev_remove(struct ioctx *ctx, cord_t c) {
       return;
     }
   }
-  warnx("kev_remove: cord not found");
 }
 
 void iovisor(braid_t b) {
