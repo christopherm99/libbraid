@@ -22,8 +22,8 @@ static struct ioctx *getctx(braid_t b) {
     /* TODO: this should be in the cord's lifetime */
     if (!(*ctx = braidzalloc(b, sizeof(struct ioctx)))) err(EX_OSERR, "iovisor: alloc");
     /* FIXME: choose a reasonable value for entries */
-    if (io_uring_queue_init(32, &(*ctx)->ring, IORING_SETUP_COOP_TASKRUN | IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN))
-      err(EX_OSERR, "iovisor: io_uring_setup");
+    if (io_uring_queue_init(8196, &(*ctx)->ring, IORING_SETUP_COOP_TASKRUN | IORING_SETUP_SINGLE_ISSUER | IORING_SETUP_DEFER_TASKRUN))
+      errx(EX_OSERR, "iovisor: io_uring_setup");
   }
   return *ctx;
 }

@@ -14,6 +14,7 @@
 #include "arena.h"
 #include "lambda.h"
 #include "pool.h"
+#include "khashl.h"
 
 #define alloc(x) calloc(1, x)
 
@@ -27,6 +28,9 @@ struct cord {
   uchar   flags;
 };
 
+#define hash_cord(c) kh_hash_uint64((uintptr_t)c)
+KHASHL_SET_INIT(KH_LOCAL, cordset_t, cordset, void *, hash_cord, kh_eq_generic)
+
 struct data {
   struct data *next;
   void        *data;
@@ -34,16 +38,16 @@ struct data {
 };
 
 struct braid {
-  ctx_t  sched;
-  cord_t running;
+  ctx_t        start;
+  cord_t       running;
   struct {
     cord_t head;
     cord_t tail;
   } cords;
-  cord_t blocked;
-  cord_t zombies;
-  arena_t arena;
-  pool_t lambda_pool;
+  cordset_t   *blocked;
+  cord_t       zombies;
+  arena_t      arena;
+  pool_t       lambda_pool;
   struct data *data;
 };
 
@@ -90,10 +94,11 @@ static inline void cordinfo(const cord_t c, char state) {
 
 void braidinfo(const braid_t b) {
   cord_t c;
+  khint_t k;
 
   cordinfo(b->running, 'R');
   for (c = b->cords.head; c; c = c->next) cordinfo(c, 'r');
-  for (c = b->blocked; c; c = c->next) cordinfo(c, 'b');
+  kh_foreach(b->blocked, k) cordinfo(kh_key(b->blocked, k), 'b');
 }
 
 #ifdef __APPLE__
@@ -109,6 +114,7 @@ braid_t braidinit(void) {
   void *mem;
 
   if ((b = alloc(sizeof(struct braid))) == NULL) err(EX_OSERR, "braidinit: alloc");
+  b->blocked = cordset_init();
   b->arena = arena_create();
   // seems like plenty of space...
   if ((mem = mmap(0, 1073741824, MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED) err(EX_OSERR, "mmap");
@@ -154,6 +160,18 @@ cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name, uch
   return c;
 }
 
+static void schedule(braid_t b, ctx_t curr) {
+  cord_t c;
+  if ((braidcnt(b) || kh_size(b->blocked)) && (c = braidpop(b)) != NULL) {
+    b->running = c;
+    ctxswap(curr, c->ctx);
+  } else ctxswap(curr, b->start);
+  while ((c = b->zombies)) {
+    b->zombies = c->next;
+    corddel(b, c);
+  }
+}
+
 static void segvhandler(int sig, siginfo_t *info, void *uap, braid_t b) {
   usize guardpage = (usize)ctxstack(b->running->ctx);
   if (((usize)info->si_addr >= guardpage) && ((usize)info->si_addr < guardpage + sysconf(_SC_PAGESIZE)))
@@ -170,7 +188,7 @@ void braidstart(braid_t b) {
   struct sigaction sa = {0}, osa;
   cord_t c;
 
-  b->sched = ctxempty();
+  b->start = ctxempty();
 
   /* install signal handlers */
   if ((h1 = mmap(NULL, LAMBDA_BIND_SIZE(0,1,0) + LAMBDA_BIND_SIZE(0,1,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
@@ -190,18 +208,7 @@ void braidstart(braid_t b) {
   sigemptyset(&sa.sa_mask);
   foreachsig(sig, if (sigaction(sig, &sa, NULL)) err(EX_OSERR, "sigaction");)
 
-  for (;;) {
-    while ((c = b->zombies)) {
-      b->zombies = c->next;
-      corddel(b, c);
-    }
-    if ((braidcnt(b) + braidblk(b)) && (c = braidpop(b)) != NULL) {
-      b->running = c;
-      ctxswap(b->sched, c->ctx);
-    } else {
-      break;
-    }
-  }
+  schedule(b, b->start);
 
   /* uninstall signal handlers */
   if (!sigaltstack(NULL, &oss) && oss.ss_sp == ss.ss_sp) {
@@ -226,49 +233,37 @@ void braidstart(braid_t b) {
     corddel(b, c);
   }
 
-  while ((c = b->blocked)) {
-    b->blocked = c->next;
-    corddel(b, c);
+  {
+    khint_t k;
+    kh_foreach(b->blocked, k) corddel(b, kh_key(b->blocked, k));
+    cordset_destroy(b->blocked);
   }
 
   arena_destroy(b->arena);
-  ctxdel(b->sched);
   free(b);
 }
 
 void braidyield(braid_t b) {
   if (b->running == NULL) return;
   braidappend(b, b->running);
-  ctxswap(b->running->ctx, b->sched);
+  schedule(b, b->running->ctx);
 }
 
 usize braidblock(braid_t b) {
-  if (b->blocked) b->blocked->prev = b->running;
-  b->running->next = b->blocked;
-  b->running->prev = NULL;
-  b->blocked = b->running;
-  ctxswap(b->running->ctx, b->sched);
+  int absent;
+  cordset_put(b->blocked, b->running, &absent);
+  schedule(b, b->running->ctx);
   return b->running->val;
 }
 
 int braidunblock(braid_t b, cord_t c, usize val) {
-  cord_t curr;
-  for (curr = b->blocked; curr; curr = curr->next)
-    if (curr == c) {
-      if (curr->prev) {
-        curr->prev->next = curr->next;
-        if (curr->next) curr->next->prev = curr->prev;
-      } else {
-        b->blocked = curr->next;
-        if (curr->next) curr->next->prev = NULL;
-      }
-      goto found;
-    }
-  return -1;
-found:
-  c->val = val;
-  braidappend(b, c);
-  return 0;
+  khint_t k;
+  if ((k = cordset_get(b->blocked, c)) < kh_end(b->blocked)) {
+    cordset_del(b->blocked, k);
+    c->val = val;
+    braidappend(b, c);
+    return 0;
+  } else return -1;
 }
 
 void braidstop(braid_t b) {
@@ -276,13 +271,13 @@ void braidstop(braid_t b) {
   b->running->next = b->cords.head;
   b->zombies = b->running;
   b->cords.head = 0;
-  ctxswap(dummy_ctx, b->sched);
+  schedule(b, dummy_ctx);
 }
 
 void braidexit(braid_t b) {
   b->running->next = b->zombies;
   b->zombies = b->running;
-  ctxswap(dummy_ctx, b->sched);
+  schedule(b, dummy_ctx);
 }
 
 cord_t braidcurr(const braid_t b) { return b->running; }
@@ -301,11 +296,7 @@ uint braidsys(const braid_t b) {
   return ret;
 }
 
-uint braidblk(const braid_t b) {
-  uint ret = 0;
-  for (cord_t c = b->blocked; c; c = c->next) ret++;
-  return ret;
-}
+uint braidblk(const braid_t b) { return kh_size(b->blocked); }
 
 void **braiddata(braid_t b, uchar key) {
   struct data *d;
@@ -322,11 +313,12 @@ void **braiddata(braid_t b, uchar key) {
 }
 
 void cordhalt(braid_t b, cord_t c) {
+  khint_t k;
   if (c->prev) c->prev->next = c->next;
   if (c->next) c->next->prev = c->prev;
   if (b->cords.head == c) b->cords.head = c->next;
   if (b->cords.tail == c) b->cords.tail = c->prev;
-  if (b->blocked == c) b->blocked = c->next;
+  if ((k = cordset_get(b->blocked, c)) < kh_end(b->blocked)) cordset_del(b->blocked, k);
   c->next = b->zombies;
   b->zombies = c;
 }
