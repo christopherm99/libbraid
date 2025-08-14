@@ -225,8 +225,7 @@ USAGE
     usize   chrecv(braid_t b, ch_t ch);
 
             Receives data from the channel `ch` in the braid `b`, blocking until
-            data is available. Returns the received data, or 0 if the channel was
-            destroyed.
+            data is available. Returns the received data, or -1 on error.
 
   Clock routines are available through `braid/ck.h`.
 
