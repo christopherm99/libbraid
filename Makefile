@@ -7,7 +7,7 @@ $(shell mkdir -p build)
 CFLAGS := -Wall -Wextra -Werror -pedantic -std=c99 -O2 -g -Iinclude
 MACHINE := $(shell uname -m)
 
-.PHONY: all clean examples
+.PHONY: all clean examples install
 
 all: build/libbraid.a build/libbraid.pc examples
 
