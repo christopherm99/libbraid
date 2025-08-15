@@ -4,6 +4,7 @@
 
 #include <err.h>
 #include <liburing.h>
+#include <string.h>
 #include <sysexits.h>
 
 #define IMM &(struct __kernel_timespec){0}
@@ -48,14 +49,15 @@ void iovisor(braid_t b) {
 
   for (;;) {
     if (ctx->cnt) {
+      int rc;
       uint head, i = 0;
       struct io_uring_cqe *cqe;
 
       /* TODO: should we submit in the cords? */
-      if (io_uring_submit_and_wait_timeout(&ctx->ring, &cqe, 1, (braidcnt(b) + braidsys(b)) ? IMM : INF, NULL) < 0) {
-        if (errno == -EINTR) continue;
-        if (errno == -ETIME) goto yield;
-        err(EX_OSERR, "iovisor: io_uring_submit_and_wait");
+      if ((rc = io_uring_submit_and_wait_timeout(&ctx->ring, &cqe, 1, (braidcnt(b) + braidsys(b)) ? IMM : INF, NULL)) < 0) {
+        if (rc == -EINTR) continue;
+        if (rc == -ETIME) goto yield;
+        err(EX_OSERR, "iovisor: io_uring_submit_and_wait: %s", strerror(rc));
       }
 
       io_uring_for_each_cqe(&ctx->ring, head, cqe) {
