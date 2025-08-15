@@ -50,7 +50,7 @@ usize ckntimeoutv(braid_t b, fn_t f, usize stacksize, ulong ns, int nargs, va_li
   if ((ret = chrecv(b, c))) cordhalt(b, cwait);
   else cordhalt(b, cwork);
 
-  chdestroy(c);
+  // FIXME: chdestroy(c);
   munmap(fns, sizeof(struct fns));
 
   return ret;
