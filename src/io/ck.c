@@ -19,6 +19,12 @@
     return ret; \
   }
 
+#ifdef __APPLE__
+#define MMAP_PROT PROT_READ | PROT_WRITE
+#else
+#define MMAP_PROT PROT_READ | PROT_WRITE | PROT_EXEC
+#endif
+
 usize ckntimeoutv(braid_t b, fn_t f, usize stacksize, ulong ns, int nargs, va_list args) {
   usize ret;
   struct fns {
@@ -30,7 +36,7 @@ usize ckntimeoutv(braid_t b, fn_t f, usize stacksize, ulong ns, int nargs, va_li
   ch_t c = chcreate();
   cord_t cwork, cwait;
 
-  if ((fns = (struct fns *)mmap(NULL, sizeof(struct fns), PROT_NONE, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
+  if ((fns = (struct fns *)mmap(NULL, sizeof(struct fns), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "timeout: mmap");
 
 #pragma GCC diagnostic push
