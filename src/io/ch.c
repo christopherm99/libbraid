@@ -35,9 +35,11 @@ void chclose(braid_t b, ch_t ch) {
   if (!ch->head) free(ch);
   else {
     ch->closed = 1;
-    if (ch->head->type == RECV)
+    if (ch->head->type == RECV) {
       for (struct elt *e = ch->head; e; e = e->next)
         braidunblock(b, e->c, 0);
+      free(ch);
+    }
   }
 }
 
@@ -96,7 +98,7 @@ usize chrecv(braid_t b, ch_t ch, char *ok) {
     r(ret, 1);
   } else {
     braidfree(b, e);
-    r(0, 1);
+    r(0, 0);
   }
 }
 

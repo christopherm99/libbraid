@@ -25,40 +25,33 @@
 #define MMAP_PROT PROT_READ | PROT_WRITE | PROT_EXEC
 #endif
 
+static void work(braid_t b, fn_t f, ch_t ch) { chsend(b, ch, f()); }
+
+static void wait(braid_t b, cord_t c, ch_t ch, ulong ns) {
+  cknsleep(b, ns);
+  cordhalt(b, c);
+  chclose(b, ch);
+}
+
 usize ckntimeoutv(braid_t b, fn_t f, usize stacksize, ulong ns, int nargs, va_list args) {
   char ok;
   usize ret;
-  struct fns {
-    uchar work[LAMBDA_COMPOSE_SIZE];
-    uchar send1[LAMBDA_BIND_SIZE(1,2,0)];
-    uchar wait[LAMBDA_COMPOSE_SIZE];
-    uchar send2[LAMBDA_BIND_SIZE(0,3,0)];
-  } *fns;
+  uchar *bound_f;
   ch_t c = chopen();
   cord_t cwork, cwait;
 
-  if ((fns = (struct fns *)mmap(NULL, sizeof(struct fns), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
+  if ((bound_f = mmap(NULL, LAMBDA_BIND_SIZE(0,nargs,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "timeout: mmap");
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wcast-function-type"
-  cwork = braidvadd(b, (void (*)(usize))
-      lambda_compose(fns->work,
-        lambda_bind(fns->send1, (fn_t)chsend, 3, LDR((usize)b), LDR((usize)c), MOV(0)),
-        f),
-      stacksize, "timeout (work)", CORD_NORMAL, nargs, args);
-  cwait = braidadd(b, (void (*)(braid_t b, ulong))
-      lambda_compose(fns->wait,
-        lambda_bindldr(fns->send2, (fn_t)chsend, 0, 3, b, c, 0),
-        (fn_t)cknsleep),
-      65536, "timeout (wait)", CORD_NORMAL, 2, b, ns);
-#pragma GCC diagnostic pop
+  cwork = braidadd(b, work, stacksize, "timeout (work)", CORD_NORMAL, 3, b, lambda_vbindldr(bound_f, f, 0, nargs, args), c);
+  cwait = braidadd(b, wait, 1024, "timeout (wait)", CORD_NORMAL, 4, b, cwork, c, ns);
 
-  if ((ret = chrecv(b, c, &ok)), ok) cordhalt(b, cwait);
-  else cordhalt(b, cwork);
+  if ((ret = chrecv(b, c, &ok)), ok) {
+    cordhalt(b, cwait);
+    chclose(b, c);
+  }
 
-  chclose(b, c);
-  munmap(fns, sizeof(struct fns));
+  munmap(bound_f, LAMBDA_BIND_SIZE(0,nargs,0));
 
   return ret;
 }
