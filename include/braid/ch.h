@@ -3,12 +3,12 @@
 
 #include <braid.h>
 
-typedef uint64_t ch_t;
+typedef struct ch * ch_t;
 
-ch_t chcreate(void);
-void chdestroy(ch_t ch);
+ch_t chopen(void);
+void chclose(braid_t b, ch_t ch);
 int chsend(braid_t b, ch_t ch, usize data);
-usize chrecv(braid_t b, ch_t ch);
+usize chrecv(braid_t b, ch_t ch, char *ok);
 
 #endif
 

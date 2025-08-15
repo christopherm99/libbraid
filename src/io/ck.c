@@ -26,6 +26,7 @@
 #endif
 
 usize ckntimeoutv(braid_t b, fn_t f, usize stacksize, ulong ns, int nargs, va_list args) {
+  char ok;
   usize ret;
   struct fns {
     uchar work[LAMBDA_COMPOSE_SIZE];
@@ -33,7 +34,7 @@ usize ckntimeoutv(braid_t b, fn_t f, usize stacksize, ulong ns, int nargs, va_li
     uchar wait[LAMBDA_COMPOSE_SIZE];
     uchar send2[LAMBDA_BIND_SIZE(0,3,0)];
   } *fns;
-  ch_t c = chcreate();
+  ch_t c = chopen();
   cord_t cwork, cwait;
 
   if ((fns = (struct fns *)mmap(NULL, sizeof(struct fns), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
@@ -53,10 +54,10 @@ usize ckntimeoutv(braid_t b, fn_t f, usize stacksize, ulong ns, int nargs, va_li
       65536, "timeout (wait)", CORD_NORMAL, 2, b, ns);
 #pragma GCC diagnostic pop
 
-  if ((ret = chrecv(b, c))) cordhalt(b, cwait);
+  if ((ret = chrecv(b, c, &ok)), ok) cordhalt(b, cwait);
   else cordhalt(b, cwork);
 
-  // FIXME: chdestroy(c);
+  chclose(b, c);
   munmap(fns, sizeof(struct fns));
 
   return ret;
