@@ -80,6 +80,7 @@ int main() {
 EOF
   if $cc -o /tmp/timerfdtest /tmp/timerfdtest.c 2>/dev/null; then
     rm -f /tmp/timerfdtest /tmp/timerfdtest.c
+    printf "yes\n"
     return 0
   else
     printf "no\n"
