@@ -3,58 +3,102 @@
 #include <braid/ch.h>
 
 #include <errno.h>
-#include <fcntl.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include <stdlib.h>
 
-typedef union {
-  ch_t ch;
-  int fd[2];
-} ch_u;
+enum { SEND, RECV };
 
-static int read_all(int fd, void *buf, size_t len) {
-  char *p = buf;
-  while (len) {
-    ssize_t n = read(fd, p, len);
-    if (n <= 0) return -1;
-    p += n;
-    len -= n;
+struct ch {
+  char closed;
+  struct elt {
+    cord_t      c;
+    usize       val;
+    struct elt *next;
+    uchar       type;
+  } *head, *tail;
+};
+
+static inline struct elt *elt_peek(ch_t c) { return c->head; }
+static inline struct elt *elt_pop(ch_t c) {
+  struct elt *e;
+  if ((e = c->head) && !(c->head = e->next)) c->tail = 0;
+  return e;
+}
+static inline void elt_append(ch_t c, struct elt *e) {
+  if (c->tail) c->tail->next = e;
+  else c->head = e;
+  c->tail = e;
+}
+
+ch_t chopen(void) { return calloc(1, sizeof(struct ch)); }
+
+void chclose(braid_t b, ch_t ch) {
+  if (!ch->head) free(ch);
+  else {
+    ch->closed = 1;
+    if (ch->head->type == RECV) {
+      for (struct elt *e = ch->head; e; e = e->next)
+        braidunblock(b, e->c, 0);
+      free(ch);
+    }
   }
-  return 0;
 }
 
-ch_t chcreate(void) {
-  ch_u c;
-  if ((socketpair(AF_UNIX, SOCK_SEQPACKET, 0, c.fd) && errno != EPROTONOSUPPORT) ||
-      socketpair(AF_UNIX, SOCK_STREAM, 0, c.fd))
+int chsend(braid_t b, ch_t ch, usize data) {
+  struct elt *e;
+  if (ch->closed) {
+    errno = EPIPE;
+    return -1;
+  }
+
+retry:
+  if ((e = elt_peek(ch)) && e->type == RECV) {
+    elt_pop(ch);
+    e->val = data;
+    if (braidunblock(b, e->c, 1)) {
+      braidfree(b, e);
+      goto retry;
+    }
     return 0;
+  }
 
-  fcntl(c.fd[0], F_SETFL, fcntl(c.fd[0], F_GETFL) | FD_CLOEXEC);
-  fcntl(c.fd[1], F_SETFL, fcntl(c.fd[1], F_GETFL) | FD_CLOEXEC);
-  return c.ch;
+  if (!(e = braidzalloc(b, sizeof(struct elt)))) return -1;
+  e->c = braidcurr(b);
+  e->val = data;
+  e->type = SEND;
+  elt_append(ch, e);
+  return braidblock(b);
 }
 
-void chdestroy(ch_t _ch) {
-  ch_u ch = { _ch };
-  close(ch.fd[0]);
-  close(ch.fd[1]);
-}
+#define r(ret,k) \
+  do { \
+    if (ok) *ok = k; \
+    return ret; \
+  } while (0)
 
-int chsend(braid_t b, ch_t _ch, usize data) {
-  ch_u ch = { _ch };
-  char ack;
-  if (send(ch.fd[0], &data, sizeof(data), 0) != sizeof(data)) return -1;
-  fdwait(b, ch.fd[0], 'r');
-  if (recv(ch.fd[0], &ack, 1, 0) != 1) return -1;
-  return 0;
-}
+usize chrecv(braid_t b, ch_t ch, char *ok) {
+  usize ret;
+  struct elt *e;
+  if (ch->closed && !ch->head) r(0, 0);
 
-usize chrecv(braid_t b, ch_t _ch) {
-  ch_u ch = { _ch };
-  usize data;
-  fdwait(b, ch.fd[1], 'r');
-  if (read_all(ch.fd[1], &data, sizeof(data))) return -1;
-  send(ch.fd[1], &(char){0}, 1, 0);
-  return data;
+  if ((e = elt_peek(ch)) && e->type == SEND) {
+    ret = e->val;
+    elt_pop(ch);
+    braidunblock(b, e->c, 0);
+    braidfree(b, e);
+    r(ret, 1);
+  }
+
+  if (!(e = braidzalloc(b, sizeof(struct elt)))) r(0, 0);
+  e->c = braidcurr(b);
+  e->type = RECV;
+  elt_append(ch, e);
+  if (braidblock(b)) {
+    ret = e->val;
+    braidfree(b, e);
+    r(ret, 1);
+  } else {
+    braidfree(b, e);
+    r(0, 0);
+  }
 }
 

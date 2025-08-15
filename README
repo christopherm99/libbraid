@@ -208,24 +208,27 @@ USAGE
 
   Go-style (unbuffered) channels are available through `braid/ch.h`.
 
-    ch_t    chcreate(void);
+    ch_t    chopen(void);
 
             Creates a new channel.
 
-    void    chdestroy(ch_t ch);
+    void    chclose(braid_t b, ch_t ch);
 
-            Destroys the channel `ch`.
+            Closes the channel `ch`. No new sends will be accepted. Memory will
+            be freed as soon as the channel is drained.
 
     int     chsend(braid_t b, ch_t ch, usize data);
 
             Sends `data` to the channel `ch` in the braid `b`, blocking until
             the data is received. Returns 0 on success, or -1 if the channel was
-            destroyed.
+            closed.
 
-    usize   chrecv(braid_t b, ch_t ch);
+    usize   chrecv(braid_t b, ch_t ch, char *ok);
 
             Receives data from the channel `ch` in the braid `b`, blocking until
-            data is available. Returns the received data, or -1 on error.
+            data is available. Returns the received data, or 0 if the channel
+            closed. `ok` is nullable, but if non-null will distinguish between
+            validly returning 0 or error.
 
   Clock routines are available through `braid/ck.h`.
 
