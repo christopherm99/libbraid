@@ -208,7 +208,7 @@ USAGE
 
   Go-style (unbuffered) channels are available through `braid/ch.h`.
 
-    ch_t    chopen(void);
+    ch_t    chopen(braid_t b);
 
             Creates a new channel.
 

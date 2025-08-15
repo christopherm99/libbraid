@@ -239,6 +239,7 @@ void braidstart(braid_t b) {
     cordset_destroy(b->blocked);
   }
 
+  ctxdel(b->start);
   arena_destroy(b->arena);
   free(b);
 }

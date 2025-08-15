@@ -29,7 +29,7 @@ static inline void elt_append(ch_t c, struct elt *e) {
   c->tail = e;
 }
 
-ch_t chopen(void) { return calloc(1, sizeof(struct ch)); }
+ch_t chopen(braid_t b) { return braidzalloc(b, sizeof(struct ch)); }
 
 void chclose(braid_t b, ch_t ch) {
   if (!ch->head) free(ch);
