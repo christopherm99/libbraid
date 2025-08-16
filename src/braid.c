@@ -232,6 +232,7 @@ void braidstart(braid_t b) {
   }
 
   for (cordset_t e = b->blocked; e; e = e->hh.next) corddel(b, e->c);
+  HASH_CLEAR(hh, b->blocked);
 
   ctxdel(b->start);
   arena_destroy(b->arena);
