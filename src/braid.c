@@ -19,7 +19,6 @@
 #define alloc(x) calloc(1, x)
 
 struct cord {
-  cord_t  next, prev;
   ctx_t   ctx;
   usize   val;
   char   *name;
@@ -28,8 +27,9 @@ struct cord {
   uchar   flags;
 };
 
-typedef struct {
-  cord_t c;
+// TODO: unify hash handle into cord_t
+typedef struct elt {
+  cord_t key;
   UT_hash_handle hh;
 } * cordset_t;
 
@@ -41,35 +41,32 @@ struct data {
 
 struct braid {
   ctx_t        start;
-  cord_t       running;
-  struct {
-    cord_t head;
-    cord_t tail;
-  } cords;
+  cord_t       curr;
+  cordset_t    runable;
   cordset_t    blocked;
-  cord_t       zombies;
+  cordset_t    zombies;
   arena_t      arena;
   pool_t       lambda_pool;
   struct data *data;
 };
 
 static cord_t braidpop(braid_t b) {
+  cordset_t e;
   cord_t c;
 
-  if ((c = b->cords.head) == NULL) return NULL;
-  b->cords.head = c->next;
-  if (b->cords.head) b->cords.head->prev = NULL;
-  else b->cords.tail = NULL;
+  if (!b->runable) return NULL;
+  e = b->runable;
+  c = e->key;
+  HASH_DEL(b->runable, b->runable);
+  braidfree(b, e);
 
   return c;
 }
 
 static void braidappend(braid_t b, cord_t c) {
-  c->next = NULL;
-  c->prev = b->cords.tail;
-  if (b->cords.tail) b->cords.tail->next = c;
-  else b->cords.head = c;
-  b->cords.tail = c;
+  cordset_t e = braidmalloc(b, sizeof(struct elt));
+  e->key = c;
+  HASH_ADD_PTR(b->runable, key, e);
 }
 
 static inline void corddel(braid_t b, cord_t c) {
@@ -95,9 +92,9 @@ static inline void cordinfo(const cord_t c, char state) {
 }
 
 void braidinfo(const braid_t b) {
-  cordinfo(b->running, 'R');
-  for (cord_t c = b->cords.head; c; c = c->next) cordinfo(c, 'r');
-  for (cordset_t e = b->blocked; e; e = e->hh.next) cordinfo(e->c, 'b');
+  cordinfo(b->curr, 'R');
+  for (cordset_t e = b->runable; e; e = e->hh.next) cordinfo(e->key, 'r');
+  for (cordset_t e = b->blocked; e; e = e->hh.next) cordinfo(e->key, 'b');
 }
 
 #ifdef __APPLE__
@@ -159,19 +156,21 @@ cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name, uch
 }
 
 static void schedule(braid_t b, ctx_t curr) {
+  cordset_t e, tmp;
   cord_t c;
   if ((braidcnt(b) || braidblk(b)) && (c = braidpop(b)) != NULL) {
-    b->running = c;
+    b->curr = c;
     ctxswap(curr, c->ctx);
   } else ctxswap(curr, b->start);
-  while ((c = b->zombies)) {
-    b->zombies = c->next;
-    corddel(b, c);
+  HASH_ITER(hh, b->zombies, e, tmp) {
+    HASH_DEL(b->zombies, e);
+    corddel(b, e->key);
+    braidfree(b, e);
   }
 }
 
 static void segvhandler(int sig, siginfo_t *info, void *uap, braid_t b) {
-  usize guardpage = (usize)ctxstack(b->running->ctx);
+  usize guardpage = (usize)ctxstack(b->curr->ctx);
   if (((usize)info->si_addr >= guardpage) && ((usize)info->si_addr < guardpage + sysconf(_SC_PAGESIZE)))
     if (write(2, "stack overflow\n", 15) != 15) abort();
   braidinfo(b);
@@ -184,7 +183,6 @@ void braidstart(braid_t b) {
   void *h1, *h2;
   stack_t ss, oss;
   struct sigaction sa = {0}, osa;
-  cord_t c;
 
   b->start = ctxempty();
 
@@ -226,12 +224,10 @@ void braidstart(braid_t b) {
   if (!sigaction(SIGQUIT, NULL, &osa) && ((usize)osa.sa_handler == (usize)h2)) signal(SIGQUIT, SIG_DFL);
   munmap(h1, LAMBDA_BIND_SIZE(0,1,0));
 
-  while ((c = b->cords.head)) {
-    b->cords.head = c->next;
-    corddel(b, c);
-  }
+  for (cordset_t e = b->runable; e; e = e->hh.next) corddel(b, e->key);
+  HASH_CLEAR(hh, b->runable);
 
-  for (cordset_t e = b->blocked; e; e = e->hh.next) corddel(b, e->c);
+  for (cordset_t e = b->blocked; e; e = e->hh.next) corddel(b, e->key);
   HASH_CLEAR(hh, b->blocked);
 
   ctxdel(b->start);
@@ -240,17 +236,17 @@ void braidstart(braid_t b) {
 }
 
 void braidyield(braid_t b) {
-  if (b->running == NULL) return;
-  braidappend(b, b->running);
-  schedule(b, b->running->ctx);
+  if (b->curr == NULL) return;
+  braidappend(b, b->curr);
+  schedule(b, b->curr->ctx);
 }
 
 usize braidblock(braid_t b) {
   cordset_t e = braidmalloc(b, sizeof(*e));
-  e->c = b->running;
-  HASH_ADD_PTR(b->blocked, c, e);
-  schedule(b, b->running->ctx);
-  return b->running->val;
+  e->key = braidcurr(b);
+  HASH_ADD_PTR(b->blocked, key, e);
+  schedule(b, b->curr->ctx);
+  return b->curr->val;
 }
 
 int braidunblock(braid_t b, cord_t c, usize val) {
@@ -266,32 +262,38 @@ int braidunblock(braid_t b, cord_t c, usize val) {
 }
 
 void braidstop(braid_t b) {
-  if (b->cords.tail) b->cords.tail->next = b->zombies;
-  b->running->next = b->cords.head;
-  b->zombies = b->running;
-  b->cords.head = 0;
+  cordset_t e, tmp;
+  HASH_ITER(hh, b->runable, e, tmp) {
+    HASH_DEL(b->runable, e);
+    corddel(b, e->key);
+    braidfree(b, e);
+  }
+  e = braidmalloc(b, sizeof(struct elt));
+  e->key = braidcurr(b);
+  HASH_ADD_PTR(b->zombies, key, e);
   schedule(b, dummy_ctx);
 }
 
 void braidexit(braid_t b) {
-  b->running->next = b->zombies;
-  b->zombies = b->running;
+  cordset_t e = braidmalloc(b, sizeof(struct elt));
+  e->key = braidcurr(b);
+  HASH_ADD_PTR(b->zombies, key, e);
   schedule(b, dummy_ctx);
 }
 
-cord_t braidcurr(const braid_t b) { return b->running; }
+cord_t braidcurr(const braid_t b) { return b->curr; }
 
 uint braidcnt(const braid_t b) {
   uint ret = 0;
-  for (cord_t c = b->cords.head; c; c = c->next)
-    if (!(c->flags & CORD_SYSTEM)) ret++;
+  for (cordset_t e = b->runable; e; e = e->hh.next)
+    if (!(e->key->flags & CORD_SYSTEM)) ret++;
   return ret;
 }
 
 uint braidsys(const braid_t b) {
   uint ret = 0;
-  for (cord_t c = b->cords.head; c; c = c->next)
-    if (c->flags & CORD_SYSTEM) ret++;
+  for (cordset_t e = b->runable; e; e = e->hh.next)
+    if (e->key->flags & CORD_SYSTEM) ret++;
   return ret;
 }
 
@@ -313,17 +315,17 @@ void **braiddata(braid_t b, uchar key) {
 
 void cordhalt(braid_t b, cord_t c) {
   cordset_t e;
-  if (c->prev) c->prev->next = c->next;
-  if (c->next) c->next->prev = c->prev;
-  if (b->cords.head == c) b->cords.head = c->next;
-  if (b->cords.tail == c) b->cords.tail = c->prev;
-  HASH_FIND_PTR(b->blocked, &c, e);
+  HASH_FIND_PTR(b->runable, &c, e);
   if (e) {
-    HASH_DEL(b->blocked, e);
-    braidfree(b, e);
+    HASH_DEL(b->runable, e);
+    HASH_ADD_PTR(b->zombies, key, e);
+  } else {
+    HASH_FIND_PTR(b->blocked, &c, e);
+    if (e) {
+      HASH_DEL(b->blocked, e);
+      HASH_ADD_PTR(b->zombies, key, e);
+    }
   }
-  c->next = b->zombies;
-  b->zombies = c;
 }
 
 void *cordmalloc(cord_t c, size_t sz) { return arena_malloc(c->arena, sz); }
