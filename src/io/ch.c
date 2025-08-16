@@ -38,7 +38,7 @@ void chclose(braid_t b, ch_t ch) {
     if (ch->head->type == RECV) {
       for (struct elt *e = ch->head; e; e = e->next)
         braidunblock(b, e->c, 0);
-      free(ch);
+      braidfree(b, ch);
     }
   }
 }

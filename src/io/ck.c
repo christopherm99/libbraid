@@ -37,14 +37,14 @@ usize ckntimeoutv(braid_t b, fn_t f, usize stacksize, ulong ns, int nargs, va_li
   char ok;
   usize ret;
   uchar *bound_f;
-  ch_t c = chopen();
+  ch_t c = chopen(b);
   cord_t cwork, cwait;
 
   if ((bound_f = mmap(NULL, LAMBDA_BIND_SIZE(0,nargs,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "timeout: mmap");
 
   cwork = braidadd(b, work, stacksize, "timeout (work)", CORD_NORMAL, 3, b, lambda_vbindldr(bound_f, f, 0, nargs, args), c);
-  cwait = braidadd(b, wait, 1024, "timeout (wait)", CORD_NORMAL, 4, b, cwork, c, ns);
+  cwait = braidadd(b, wait, 65536, "timeout (wait)", CORD_NORMAL, 4, b, cwork, c, ns);
 
   if ((ret = chrecv(b, c, &ok)), ok) {
     cordhalt(b, cwait);
