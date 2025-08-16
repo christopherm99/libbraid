@@ -12,7 +12,7 @@
 #include <braid/io.h>
 #include <braid/ch.h>
 
-int goal = 3;
+int goal = 10000;
 int last = 0;
 
 void prime(braid_t b, ch_t c) {
