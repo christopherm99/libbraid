@@ -2,6 +2,8 @@
 #include <braid.h>
 #include <braid/fd.h>
 
+#include "valgrind/memcheck.h"
+
 #include <liburing.h>
 #include <poll.h>
 
@@ -15,6 +17,8 @@ void fdwait(braid_t b, int fd, char rw) {
 int fdread(braid_t b, int fd, void *buf, size_t count) {
   /* FIXME: two braids reading from the same file may cause issues */
   io_uring_prep_read(get_sqe(b), fd, buf, count, -1);
+  /* https://bugs.kde.org/show_bug.cgi?id=508319 */
+  VALGRIND_MAKE_MEM_DEFINED(buf, count);
   return braidblock(b);
 }
 

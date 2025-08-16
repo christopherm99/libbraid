@@ -6,7 +6,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#include "valgrind.h"
+#include "valgrind/valgrind.h"
 
 #define alloc(x) calloc(1, x)
 
