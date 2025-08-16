@@ -6,6 +6,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#include "valgrind.h"
+
 #define alloc(x) calloc(1, x)
 
 #ifdef __amd64__
@@ -47,6 +49,8 @@ ctx_t ctxcreate(void (*f)(usize), usize stacksize, usize arg) {
 
   if ((c->stack = mmap(NULL, c->mapsize = mapsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "ctxcreate: mmap");
+
+  (void)VALGRIND_STACK_REGISTER(c->stack, c->stack + mapsize);
 
   /* TODO: don't assume the stack grows down */
   if (mprotect(c->stack, pagesize, PROT_NONE)) err(EX_OSERR, "ctxcreate: mprotect");
