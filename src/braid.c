@@ -14,7 +14,7 @@
 #include "arena.h"
 #include "lambda.h"
 #include "pool.h"
-#include "khashl.h"
+#include "uthash.h"
 
 #define alloc(x) calloc(1, x)
 
@@ -28,8 +28,10 @@ struct cord {
   uchar   flags;
 };
 
-#define hash_cord(c) kh_hash_uint64((uintptr_t)c)
-KHASHL_SET_INIT(KH_LOCAL, cordset_t, cordset, void *, hash_cord, kh_eq_generic)
+typedef struct {
+  cord_t c;
+  UT_hash_handle hh;
+} * cordset_t;
 
 struct data {
   struct data *next;
@@ -44,7 +46,7 @@ struct braid {
     cord_t head;
     cord_t tail;
   } cords;
-  cordset_t   *blocked;
+  cordset_t    blocked;
   cord_t       zombies;
   arena_t      arena;
   pool_t       lambda_pool;
@@ -93,12 +95,9 @@ static inline void cordinfo(const cord_t c, char state) {
 }
 
 void braidinfo(const braid_t b) {
-  cord_t c;
-  khint_t k;
-
   cordinfo(b->running, 'R');
-  for (c = b->cords.head; c; c = c->next) cordinfo(c, 'r');
-  kh_foreach(b->blocked, k) cordinfo(kh_key(b->blocked, k), 'b');
+  for (cord_t c = b->cords.head; c; c = c->next) cordinfo(c, 'r');
+  for (cordset_t e = b->blocked; e; e = e->hh.next) cordinfo(e->c, 'b');
 }
 
 #ifdef __APPLE__
@@ -114,7 +113,6 @@ braid_t braidinit(void) {
   void *mem;
 
   if ((b = alloc(sizeof(struct braid))) == NULL) err(EX_OSERR, "braidinit: alloc");
-  b->blocked = cordset_init();
   b->arena = arena_create();
   // seems like plenty of space...
   if ((mem = mmap(0, 1073741824, MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED) err(EX_OSERR, "mmap");
@@ -162,7 +160,7 @@ cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name, uch
 
 static void schedule(braid_t b, ctx_t curr) {
   cord_t c;
-  if ((braidcnt(b) || kh_size(b->blocked)) && (c = braidpop(b)) != NULL) {
+  if ((braidcnt(b) || braidblk(b)) && (c = braidpop(b)) != NULL) {
     b->running = c;
     ctxswap(curr, c->ctx);
   } else ctxswap(curr, b->start);
@@ -233,11 +231,7 @@ void braidstart(braid_t b) {
     corddel(b, c);
   }
 
-  {
-    khint_t k;
-    kh_foreach(b->blocked, k) corddel(b, kh_key(b->blocked, k));
-    cordset_destroy(b->blocked);
-  }
+  for (cordset_t e = b->blocked; e; e = e->hh.next) corddel(b, e->c);
 
   ctxdel(b->start);
   arena_destroy(b->arena);
@@ -251,16 +245,19 @@ void braidyield(braid_t b) {
 }
 
 usize braidblock(braid_t b) {
-  int absent;
-  cordset_put(b->blocked, b->running, &absent);
+  cordset_t e = braidmalloc(b, sizeof(*e));
+  e->c = b->running;
+  HASH_ADD_PTR(b->blocked, c, e);
   schedule(b, b->running->ctx);
   return b->running->val;
 }
 
 int braidunblock(braid_t b, cord_t c, usize val) {
-  khint_t k;
-  if ((k = cordset_get(b->blocked, c)) < kh_end(b->blocked)) {
-    cordset_del(b->blocked, k);
+  cordset_t e;
+  HASH_FIND_PTR(b->blocked, &c, e);
+  if (e) {
+    HASH_DEL(b->blocked, e);
+    braidfree(b, e);
     c->val = val;
     braidappend(b, c);
     return 0;
@@ -297,7 +294,7 @@ uint braidsys(const braid_t b) {
   return ret;
 }
 
-uint braidblk(const braid_t b) { return kh_size(b->blocked); }
+uint braidblk(const braid_t b) { return HASH_COUNT(b->blocked); }
 
 void **braiddata(braid_t b, uchar key) {
   struct data *d;
@@ -314,12 +311,16 @@ void **braiddata(braid_t b, uchar key) {
 }
 
 void cordhalt(braid_t b, cord_t c) {
-  khint_t k;
+  cordset_t e;
   if (c->prev) c->prev->next = c->next;
   if (c->next) c->next->prev = c->prev;
   if (b->cords.head == c) b->cords.head = c->next;
   if (b->cords.tail == c) b->cords.tail = c->prev;
-  if ((k = cordset_get(b->blocked, c)) < kh_end(b->blocked)) cordset_del(b->blocked, k);
+  HASH_FIND_PTR(b->blocked, &c, e);
+  if (e) {
+    HASH_DEL(b->blocked, e);
+    braidfree(b, e);
+  }
   c->next = b->zombies;
   b->zombies = c;
 }
