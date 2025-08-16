@@ -32,7 +32,7 @@ static inline void elt_append(ch_t c, struct elt *e) {
 ch_t chopen(braid_t b) { return braidzalloc(b, sizeof(struct ch)); }
 
 void chclose(braid_t b, ch_t ch) {
-  if (!ch->head) free(ch);
+  if (!ch->head) braidfree(b, ch);
   else {
     ch->closed = 1;
     if (ch->head->type == RECV) {
