@@ -18,20 +18,21 @@
 
 #define alloc(x) calloc(1, x)
 
-struct cord {
+typedef struct {
   ctx_t   ctx;
   usize   val;
   char   *name;
   arena_t arena;
   void   *lambdas[3];
   uchar   flags;
-};
-
-// TODO: unify hash handle into cord_t
-typedef struct elt {
-  cord_t key;
+  cord_t  id;
   UT_hash_handle hh;
-} * cordset_t;
+} cord_s;
+
+typedef cord_s * cordset_t;
+
+#define HASH_FIND_CORD(head,findcord,out) HASH_FIND(hh,head,findcord,sizeof(cord_t),out)
+#define HASH_ADD_CORD(head,add) HASH_ADD(hh,head,id,sizeof(cord_t),add)
 
 struct data {
   struct data *next;
@@ -41,35 +42,36 @@ struct data {
 
 struct braid {
   ctx_t        start;
-  cord_t       curr;
+  cord_s      *curr;
   cordset_t    runable;
   cordset_t    blocked;
   cordset_t    zombies;
   arena_t      arena;
   pool_t       lambda_pool;
   struct data *data;
+  uint64_t     count;
 };
 
-static cord_t braidpop(braid_t b) {
-  cordset_t e;
-  cord_t c;
+static cord_s *braidcurrs(const braid_t b) { return b->curr; }
+static cord_s *getcord(cordset_t cs, cord_t c) {
+  cord_s *ret;
+  HASH_FIND_CORD(cs, &c, ret);
+  return ret;
+}
+
+static cord_s *braidpop(braid_t b) {
+  cord_s *c;
 
   if (!b->runable) return NULL;
-  e = b->runable;
-  c = e->key;
+  c = b->runable;
   HASH_DEL(b->runable, b->runable);
-  braidfree(b, e);
 
   return c;
 }
 
-static void braidappend(braid_t b, cord_t c) {
-  cordset_t e = braidmalloc(b, sizeof(struct elt));
-  e->key = c;
-  HASH_ADD_PTR(b->runable, key, e);
-}
+static void braidappend(braid_t b, cord_s *c) { HASH_ADD_CORD(b->runable, c); }
 
-static inline void corddel(braid_t b, cord_t c) {
+static inline void corddel(braid_t b, cord_s *c) {
   ctxdel(c->ctx);
   arena_destroy(c->arena);
   for (usize i = 0; i < sizeof(c->lambdas) / sizeof(*c->lambdas); i++)
@@ -77,11 +79,15 @@ static inline void corddel(braid_t b, cord_t c) {
   free(c);
 }
 
-static inline void cordinfo(const cord_t c, char state) {
-  unsigned int i = 3;
-  char buf[30] = {(c->flags & CORD_SYSTEM) ? 'S' : ' ', state, ' '};
+static inline void cordinfo(const cord_s *c, char state) {
+  uint i = 3;
+  char buf[36] = {(c->flags & CORD_SYSTEM) ? 'S' : ' ', state, ' '};
+  buf[i++] = c->id > 9999 ? '+' : ' ';
+  for (uint j = 1000; j > 1; j /= 10) buf[i++] = c->id / j ? '0' + (c->id / j % 10) : ' ';
+  buf[i++] = '0' + c->id % 10;
+  buf[i++] = ' ';
   if (c->name) {
-    for (; i < sizeof(buf) - 1 && c->name[i-3]; i++) buf[i] = c->name[i-3];
+    for (uint j = 0; i < sizeof(buf) - 1 && c->name[j]; i++, j++) buf[i] = c->name[j];
     if (i == sizeof(buf) - 1) memcpy(&buf[i-3], "...", 3);
   } else {
     memcpy(&buf[3], "<unamed>", 8);
@@ -93,8 +99,8 @@ static inline void cordinfo(const cord_t c, char state) {
 
 void braidinfo(const braid_t b) {
   cordinfo(b->curr, 'R');
-  for (cordset_t e = b->runable; e; e = e->hh.next) cordinfo(e->key, 'r');
-  for (cordset_t e = b->blocked; e; e = e->hh.next) cordinfo(e->key, 'b');
+  for (cord_s *c = b->runable; c; c = c->hh.next) cordinfo(c, 'r');
+  for (cord_s *c = b->blocked; c; c = c->hh.next) cordinfo(c, 'b');
 }
 
 #ifdef __APPLE__
@@ -134,9 +140,9 @@ cord_t braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar
 #pragma GCC diagnostic ignored "-Wstrict-prototypes"
 cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, va_list args) {
 #pragma GCC diagnostic pop
-  cord_t c;
+  cord_s *c;
 
-  if ((c = alloc(sizeof(struct cord))) == NULL) err(EX_OSERR, "braidadd: alloc");
+  if ((c = alloc(sizeof(cord_s))) == NULL) err(EX_OSERR, "braidadd: alloc");
   for (int i = 0; i < 3; i++)
     if (!(*(void **)&c->lambdas[i] = pool_alloc(b->lambda_pool))) err(EX_OSERR, "braidadd: pool_alloc");
 #pragma GCC diagnostic push
@@ -151,21 +157,22 @@ cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name, uch
   c->arena = arena_create();
   c->name = arena_strdup(c->arena, name);
 
+  while (getcord(b->runable, b->count)) b->count++;
+  c->id = b->count++;
+
   braidappend(b, c);
-  return c;
+  return c->id;
 }
 
 static void schedule(braid_t b, ctx_t curr) {
-  cordset_t e, tmp;
-  cord_t c;
+  cord_s *c, *tmp;
   if ((braidcnt(b) || braidblk(b)) && (c = braidpop(b)) != NULL) {
     b->curr = c;
     ctxswap(curr, c->ctx);
   } else ctxswap(curr, b->start);
-  HASH_ITER(hh, b->zombies, e, tmp) {
-    HASH_DEL(b->zombies, e);
-    corddel(b, e->key);
-    braidfree(b, e);
+  HASH_ITER(hh, b->zombies, c, tmp) {
+    HASH_DEL(b->zombies, c);
+    corddel(b, c);
   }
 }
 
@@ -187,7 +194,7 @@ void braidstart(braid_t b) {
   b->start = ctxempty();
 
   /* install signal handlers */
-  if ((h1 = mmap(NULL, LAMBDA_BIND_SIZE(0,1,0) + LAMBDA_BIND_SIZE(0,1,0), MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
+  if ((h1 = mmap(NULL, LAMBDA_BIND_SIZE(0,1,0) * 2, MMAP_PROT, MAP_SHARED | MAP_ANON, -1, 0)) == MAP_FAILED)
     err(EX_OSERR, "mmap");
   h2 = ((char *)h1 + LAMBDA_BIND_SIZE(0,1,0));
   if (!(ss.ss_sp = braidmalloc(b, SIGSTKSZ))) err(EX_OSERR, "alloc sigstack");
@@ -222,13 +229,20 @@ void braidstart(braid_t b) {
     }
   )
   if (!sigaction(SIGQUIT, NULL, &osa) && ((usize)osa.sa_handler == (usize)h2)) signal(SIGQUIT, SIG_DFL);
-  munmap(h1, LAMBDA_BIND_SIZE(0,1,0));
+  munmap(h1, LAMBDA_BIND_SIZE(0,1,0) * 2);
 
-  for (cordset_t e = b->runable; e; e = e->hh.next) corddel(b, e->key);
-  HASH_CLEAR(hh, b->runable);
+  {
+    cord_s *c, *tmp;
+    HASH_ITER(hh, b->runable, c, tmp) {
+      HASH_DEL(b->runable, c);
+      corddel(b, c);
+    }
 
-  for (cordset_t e = b->blocked; e; e = e->hh.next) corddel(b, e->key);
-  HASH_CLEAR(hh, b->blocked);
+    HASH_ITER(hh, b->blocked, c, tmp) {
+      HASH_DEL(b->blocked, c);
+      corddel(b, c);
+    }
+  }
 
   ctxdel(b->start);
   arena_destroy(b->arena);
@@ -242,58 +256,50 @@ void braidyield(braid_t b) {
 }
 
 usize braidblock(braid_t b) {
-  cordset_t e = braidmalloc(b, sizeof(*e));
-  e->key = braidcurr(b);
-  HASH_ADD_PTR(b->blocked, key, e);
+  HASH_ADD_CORD(b->blocked, braidcurrs(b));
   schedule(b, b->curr->ctx);
   return b->curr->val;
 }
 
 int braidunblock(braid_t b, cord_t c, usize val) {
-  cordset_t e;
-  HASH_FIND_PTR(b->blocked, &c, e);
-  if (e) {
-    HASH_DEL(b->blocked, e);
-    braidfree(b, e);
-    c->val = val;
-    braidappend(b, c);
+  cord_s *tgt;
+  HASH_FIND_CORD(b->blocked, &c, tgt);
+  if (tgt) {
+    HASH_DEL(b->blocked, tgt);
+    tgt->val = val;
+    braidappend(b, tgt);
     return 0;
   } else return -1;
 }
 
 void braidstop(braid_t b) {
-  cordset_t e, tmp;
-  HASH_ITER(hh, b->runable, e, tmp) {
-    HASH_DEL(b->runable, e);
-    corddel(b, e->key);
-    braidfree(b, e);
+  cord_s *c, *tmp;
+  HASH_ITER(hh, b->runable, c, tmp) {
+    HASH_DEL(b->runable, c);
+    corddel(b, c);
   }
-  e = braidmalloc(b, sizeof(struct elt));
-  e->key = braidcurr(b);
-  HASH_ADD_PTR(b->zombies, key, e);
+  HASH_ADD_CORD(b->zombies, braidcurrs(b));
   schedule(b, dummy_ctx);
 }
 
 void braidexit(braid_t b) {
-  cordset_t e = braidmalloc(b, sizeof(struct elt));
-  e->key = braidcurr(b);
-  HASH_ADD_PTR(b->zombies, key, e);
+  HASH_ADD_CORD(b->zombies, braidcurrs(b));
   schedule(b, dummy_ctx);
 }
 
-cord_t braidcurr(const braid_t b) { return b->curr; }
+cord_t braidcurr(const braid_t b) { return b->curr->id; }
 
 uint braidcnt(const braid_t b) {
   uint ret = 0;
-  for (cordset_t e = b->runable; e; e = e->hh.next)
-    if (!(e->key->flags & CORD_SYSTEM)) ret++;
+  for (cord_s *c = b->runable; c; c = c->hh.next)
+    if (!(c->flags & CORD_SYSTEM)) ret++;
   return ret;
 }
 
 uint braidsys(const braid_t b) {
   uint ret = 0;
-  for (cordset_t e = b->runable; e; e = e->hh.next)
-    if (e->key->flags & CORD_SYSTEM) ret++;
+  for (cord_s *c = b->runable; c; c = c->hh.next)
+    if (c->flags & CORD_SYSTEM) ret++;
   return ret;
 }
 
@@ -314,24 +320,48 @@ void **braiddata(braid_t b, uchar key) {
 }
 
 void cordhalt(braid_t b, cord_t c) {
-  cordset_t e;
-  HASH_FIND_PTR(b->runable, &c, e);
-  if (e) {
-    HASH_DEL(b->runable, e);
-    HASH_ADD_PTR(b->zombies, key, e);
+  cord_s *tgt;
+  HASH_FIND_CORD(b->runable, &c, tgt);
+  if (tgt) {
+    HASH_DEL(b->runable, tgt);
+    HASH_ADD_CORD(b->zombies, tgt);
   } else {
-    HASH_FIND_PTR(b->blocked, &c, e);
-    if (e) {
-      HASH_DEL(b->blocked, e);
-      HASH_ADD_PTR(b->zombies, key, e);
+    HASH_FIND_CORD(b->blocked, &c, tgt);
+    if (tgt) {
+      HASH_DEL(b->blocked, tgt);
+      HASH_ADD_CORD(b->zombies, tgt);
     }
   }
 }
 
-void *cordmalloc(cord_t c, size_t sz) { return arena_malloc(c->arena, sz); }
-void *cordzalloc(cord_t c, size_t sz) { return arena_zalloc(c->arena, sz); }
-void *cordrealloc(cord_t c, void *p, size_t sz) { return arena_realloc(c->arena, p, sz); }
-void  cordfree(cord_t c, void *p) { arena_free(c->arena, p); }
+void *cordmalloc(braid_t b, cord_t c, size_t sz) {
+  cord_s *cs = getcord(b->runable, c);
+  if (!cs) cs = getcord(b->blocked, c);
+  if (!cs) return 0;
+  return arena_malloc(cs->arena, sz);
+}
+
+void *cordzalloc(braid_t b, cord_t c, size_t sz) {
+  cord_s *cs = getcord(b->runable, c);
+  if (!cs) cs = getcord(b->blocked, c);
+  if (!cs) return 0;
+  return arena_zalloc(cs->arena, sz);
+}
+
+void *cordrealloc(braid_t b, cord_t c, void *p, size_t sz) {
+  cord_s *cs = getcord(b->runable, c);
+  if (!cs) cs = getcord(b->blocked, c);
+  if (!cs) return 0;
+  return arena_realloc(cs->arena, p, sz);
+}
+
+void  cordfree(braid_t b, cord_t c, void *p) {
+  cord_s *cs = getcord(b->runable, c);
+  if (!cs) cs = getcord(b->blocked, c);
+  if (!cs) return;
+  arena_free(cs->arena, p);
+}
+
 void *braidmalloc(braid_t b, size_t sz) { return arena_malloc(b->arena, sz); }
 void *braidzalloc(braid_t b, size_t sz) { return arena_zalloc(b->arena, sz); }
 void *braidrealloc(braid_t b, void *p, size_t sz) { return arena_realloc(b->arena, p, sz); }

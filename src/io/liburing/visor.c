@@ -36,7 +36,7 @@ struct io_uring_sqe *get_sqe(braid_t b) {
     io_uring_submit(&ctx->ring);
     sqe = io_uring_get_sqe(&ctx->ring);
   }
-  io_uring_sqe_set_data(sqe, braidcurr(b));
+  io_uring_sqe_set_data(sqe, (void *)braidcurr(b));
   ctx->cnt++;
   if (ctx->is_blocked) { braidunblock(b, ctx->cord, 0); ctx->is_blocked = 0; }
   return sqe;
@@ -61,7 +61,7 @@ void iovisor(braid_t b) {
       }
 
       io_uring_for_each_cqe(&ctx->ring, head, cqe) {
-        braidunblock(b, io_uring_cqe_get_data(cqe), cqe->res);
+        braidunblock(b, (cord_t)io_uring_cqe_get_data(cqe), cqe->res);
         i++;
       }
 

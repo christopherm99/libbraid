@@ -9,13 +9,13 @@
 #define CORD_SYSTEM 0x01
 
 typedef struct braid * braid_t;
-typedef struct cord * cord_t;
+typedef uint64_t cord_t;
 
 braid_t braidinit(void) __attribute__((malloc));
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wstrict-prototypes"
-cord_t  braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, ...) __attribute__((malloc));
-cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, va_list args) __attribute__((malloc));
+cord_t  braidadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, ...);
+cord_t  braidvadd(braid_t b, void (*f)(), usize stacksize, const char *name, uchar flags, int nargs, va_list args);
 #pragma GCC diagnostic pop
 void    braidstart(braid_t b);
 void    braidyield(braid_t b);
@@ -32,10 +32,10 @@ void    braidinfo(const braid_t b);
 
 void    cordhalt(braid_t b, cord_t c);
 
-void   *cordmalloc(cord_t c, size_t sz) __attribute__((malloc, alloc_size(2)));
-void   *cordzalloc(cord_t c, size_t sz) __attribute__((malloc, alloc_size(2)));
-void   *cordrealloc(cord_t c, void *p, size_t sz) __attribute__((alloc_size(3)));
-void    cordfree(cord_t c, void *p);
+void   *cordmalloc(braid_t b, cord_t c, size_t sz) __attribute__((malloc, alloc_size(3)));
+void   *cordzalloc(braid_t b, cord_t c, size_t sz) __attribute__((malloc, alloc_size(3)));
+void   *cordrealloc(braid_t b, cord_t c, void *p, size_t sz) __attribute__((alloc_size(4)));
+void    cordfree(braid_t b, cord_t c, void *p);
 void   *braidmalloc(braid_t b, size_t sz) __attribute__((malloc, alloc_size(2)));
 void   *braidzalloc(braid_t b, size_t sz) __attribute__((malloc, alloc_size(2)));
 void   *braidrealloc(braid_t b, void *p, size_t sz) __attribute__((alloc_size(3)));

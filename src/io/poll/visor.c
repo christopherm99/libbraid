@@ -28,8 +28,8 @@ void poll_append(braid_t b, struct pollfd *pfd) {
   struct ioctx *ctx = getctx(b);
   if (ctx->cnt + 1 > ctx->cap) {
     ctx->cap = (ctx->cap == 0) ? 4 : ctx->cap * 2;
-    if ((ctx->cords = cordrealloc(ctx->cord, ctx->cords, ctx->cap * sizeof(cord_t))) == NULL ||
-        (ctx->pfds = cordrealloc(ctx->cord, ctx->pfds, ctx->cap * sizeof(struct pollfd))) == NULL)
+    if ((ctx->cords = cordrealloc(b, ctx->cord, ctx->cords, ctx->cap * sizeof(cord_t))) == NULL ||
+        (ctx->pfds = cordrealloc(b, ctx->cord, ctx->pfds, ctx->cap * sizeof(struct pollfd))) == NULL)
       err(EX_OSERR, "poll_append: realloc");
   }
   ctx->cords[ctx->cnt] = braidcurr(b);
