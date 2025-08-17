@@ -31,11 +31,11 @@ void kev_append(braid_t b, uintptr_t ident, int16_t filter, uint32_t fflags, int
   struct ioctx *ctx = getctx(b);
 
   /* FIXME: ONESHOT is not ideal */
-  EV_SET(&kev, ident, filter, EV_ADD | EV_ONESHOT, fflags, data, braidcurr(b));
+  EV_SET(&kev, ident, filter, EV_ADD | EV_ONESHOT, fflags, data, (void *)braidcurr(b));
 
   if (ctx->cnt + 1 > ctx->cap) {
     ctx->cap = (ctx->cap == 0) ? 4 : ctx->cap * 2;
-    if ((ctx->kevs = cordrealloc(ctx->cord, ctx->kevs, ctx->cap * sizeof(struct kevent))) == NULL)
+    if ((ctx->kevs = cordrealloc(b, ctx->cord, ctx->kevs, ctx->cap * sizeof(struct kevent))) == NULL)
       err(EX_OSERR, "kev_append: realloc");
   }
   ctx->kevs[ctx->cnt++] = kev;
@@ -46,7 +46,7 @@ void kev_append(braid_t b, uintptr_t ident, int16_t filter, uint32_t fflags, int
 static void kev_remove(struct ioctx *ctx, cord_t c) {
   uint i;
   for (i = 0; i < ctx->cnt; i++) {
-    if (ctx->kevs[i].udata == c) {
+    if ((cord_t)ctx->kevs[i].udata == c) {
       memmove(&ctx->kevs[i], &ctx->kevs[i + 1], (ctx->cnt - i - 1) * sizeof(struct kevent));
       ctx->cnt--;
       return;
@@ -65,14 +65,13 @@ void iovisor(braid_t b) {
     /* FIXME: this may be false in pthread scenarios? */
     if (ctx->cnt) {
       int rc;
-      struct kevent *evs = cordmalloc(ctx->cord, sizeof(struct kevent) * ctx->cnt);
+      struct kevent evs[ctx->cnt];
       if ((rc = kevent(ctx->kq, ctx->kevs, ctx->cnt, evs, ctx->cnt, (braidcnt(b) + braidsys(b)) ? IMMEDIATE : INFINITE)) == -1 && errno != EINTR)
         err(EX_OSERR, "iovisor: kevent");
       for (int i = 0; i < rc; i++) {
-        kev_remove(ctx, evs[i].udata);
-        braidunblock(b, evs[i].udata, evs[i].data);
+        kev_remove(ctx, (cord_t)evs[i].udata);
+        braidunblock(b, (cord_t)evs[i].udata, evs[i].data);
       }
-      cordfree(ctx->cord, evs);
       braidyield(b);
     } else {
       ctx->is_blocked = 1;
